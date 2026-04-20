@@ -1,0 +1,33 @@
+# 研发工程代码不纳入驱动面板
+engineering/*/workspace/*
+!engineering/*/workspace/.gitkeep
+
+# 测试工程代码不纳入驱动面板
+testing/*/workspace/*
+!testing/*/workspace/.gitkeep
+
+# 高保真交互原型工程不纳入驱动面板
+versions/*/product/prototypes/workspace/*
+!versions/*/product/prototypes/workspace/.gitkeep
+
+# 可视化辅助工具临时文件
+.superpowers/
+
+# 操作系统生成文件
+.DS_Store
+.DS_Store?
+Thumbs.db
+desktop.ini
+
+# 编辑器生成文件
+.idea/
+*.swp
+*.swo
+*~
+
+# rclone 凭证文件（不入 git，只存在本机）
+.rclone.conf
+oss-credentials.conf
+oss-secret.env
+*.credentials
+
