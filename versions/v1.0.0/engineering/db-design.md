@@ -1,7 +1,7 @@
 # v1.0.0 数据库设计
 
 > 本文档只记录 v1.0.0 新增或修改的表结构
-> 产品完整数据模型见 foundation/tech-arch/overview.md
+> 产品完整数据模型见 [engineering/docs/db-schema/full-schema.md](../../../engineering/docs/db-schema/full-schema.md)（基线，发布后须合入）
 > 技术方案见 [tech-solution.md](./tech-solution.md)
 > 接口设计见 [api-design.md](./api-design.md)
 

@@ -150,6 +150,33 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 
 ---
 
+## §4.2 全量基线 vs 版本增量
+
+跨版本长期存在的「全量基线」与当前版本内的「版本增量」各司其职。
+**写**时写增量，**读**时读基线，**发布**时合并回基线。
+
+| 层级 | 文档 | 性质 | 何时更新 |
+|------|------|------|---------|
+| 基线 | `engineering/docs/api-docs/openapi.yaml` | 全量已发布接口 | 版本发布后合入（SOP-07）|
+| 版本 | `versions/{ver}/engineering/api-design.md` | 本版本接口设计稿/增量 | 技术方案阶段（SOP-02）|
+| 基线 | `engineering/docs/db-schema/full-schema.md` | 全量表结构 | 版本发布后合入（SOP-07）|
+| 版本 | `versions/{ver}/engineering/db-design.md` | 本版本增量 DDL | 技术方案阶段（SOP-02）|
+| 基线 | `foundation/product-arch/overview.md` 模块详情 | 全量已上线功能 | 版本发布后合入（SOP-07）|
+| 版本 | `versions/{ver}/product/requirements.md` | 本版本需求 | 需求分析阶段（SOP-01）|
+
+**核心原则**：
+- **技术方案 / 需求分析阶段**：读基线（了解现状），在版本内文档写增量（本版本变更）
+- **SOP-07 推进到「已发布」阶段**：把版本内增量合入对应基线，保持基线始终反映生产现状
+- 基线之间描述冲突 → 停止，告知用户，不自行裁量
+
+**C 分层补充**：单工程内部细节（目录结构 / 启动方式 / 依赖版本）不入驱动面板基线，
+跟随工程仓库 README 走。驱动面板 `engineering/README.md` 工程清单表
+通过「详细说明」列链接到工程仓库 README。
+
+**已有产品首次迁移**：以上三个基线文档初次填充见 SOP-09 阶段 3.5「归档存量基线」。
+
+---
+
 ## §5 标准操作流程（SOP）
 
 ### SOP-00 收到任何指令前的必做准备（不可跳过）
@@ -520,6 +547,19 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 
 **完成标志**：三处文件均已同步更新
 
+**推进到「已发布」时的额外合并动作**（除三处状态同步外，必做）：
+
+| 源（版本内增量） | 目标（基线） | 合并要点 |
+|---------------|------------|---------|
+| `versions/{ver}/engineering/api-design.md` 已上线接口 | `engineering/docs/api-docs/openapi.yaml` | 追加新接口；修改已有接口；废弃接口标 `deprecated: true` |
+| `versions/{ver}/engineering/db-design.md` 增量 DDL | `engineering/docs/db-schema/full-schema.md` | 按业务模块更新表定义，ERD 同步，变更历史表追加一行 |
+| `versions/{ver}/product/requirements.md` 已交付功能 | `foundation/product-arch/overview.md` 模块详情表 | 新功能追加一行（引入版本填本版本号）；功能变更更新对应行 |
+
+**合并完成判定**：三项合并均已完成，基线文档已反映本版本交付结果。
+基线不同文档之间存在冲突 → 停止并告知用户，不自行裁量。
+
+> 合并依据见 §4.2「全量基线 vs 版本增量」。未完成合并不得将版本阶段标记为「已发布」。
+
 **示例：技术方案完成，推进到开发阶段**
 > 用户说：「v1.0.0 技术方案已完成，可以开始开发了」
 >
@@ -614,12 +654,21 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 1. 全面评估现状（产品阶段、版本号、现有文档位置、产品形态）
 2. 设置 CURRENT.md（最关键的第一步）
 3. 逆向补充 foundation/ 文档
-4. 迁移已有 PRD 到 versions/{ver}/product/requirements.md
-5. 更新 engineering/ 和 testing/ 工程仓库引用
-6. 填充当前版本文档反映实际状态
-7. 补充 standards/ 规范文档
+4. **归档存量基线**（见 SETUP.md 路径二 阶段 3.5）
+   - 🔴 必做六项：
+     - 全量表结构（`engineering/docs/db-schema/full-schema.md`）
+     - 全量 API 清单（`engineering/docs/api-docs/openapi.yaml`）
+     - 全量功能清单（`foundation/product-arch/overview.md` 模块详情表）
+     - 全量服务拓扑（`foundation/tech-arch/overview.md` 模块划分 + 架构图）
+     - 全量外部集成（`foundation/product-arch/overview.md` 外部集成表）
+     - 全量环境配置（`engineering/docs/environments.md`）
+   - 🟢 可延后：全量角色/权限矩阵
+5. 迁移已有 PRD 到 versions/{ver}/product/requirements.md
+6. 更新 engineering/ 和 testing/ 工程仓库引用
+7. 填充当前版本文档反映实际状态
+8. 补充 standards/ 规范文档
 
-**完成标志**：`SETUP.md` 路径二验收清单全部 ✅（15项）
+**完成标志**：`SETUP.md` 路径二验收清单全部 ✅（21项）
 
 **示例：确定迁移版本号**
 > 用户说：「我的产品已上线两年了，版本号应该怎么设置？」
@@ -781,6 +830,9 @@ Curl https://lobehub.com/skills/tbygamedev-claude-code-team-setup-rclone/skill.m
 | 版本内变更记录 | `versions/{ver}/CHANGES.md` | 先于文档修改写入 |
 | 产品架构变更 | `foundation/product-arch/` + changelog.md | 跨版本基线 |
 | 技术架构变更 | `foundation/tech-arch/` + changelog.md + decisions/ | 跨版本基线 |
+| 全量表结构（基线） | `engineering/docs/db-schema/full-schema.md` | 跨版本基线，版本发布合入（SOP-07）|
+| 全量 API 清单（基线） | `engineering/docs/api-docs/openapi.yaml` | 跨版本基线，版本发布合入（SOP-07）|
+| 全量功能清单（基线） | `foundation/product-arch/overview.md` 模块详情 | 跨版本基线，版本发布合入（SOP-07）|
 | 工程代码 | 各工程仓库（workspace/ clone，不入驱动面板）| |
 
 ---

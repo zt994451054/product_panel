@@ -1,6 +1,9 @@
 # 产品全貌
 
 > 本文档描述产品当前的完整功能架构，代表最新全貌
+> **「模块详情」表是全量已上线功能的权威清单（基线，快照视角）**：
+> - 已有产品迁移（SOP-09 阶段 3.5）须把所有已上线功能录入本表
+> - 新版本发布（SOP-07 推进到「已发布」）须把新交付功能合入本表
 > 随版本迭代持续更新，变更记录见 [changelog.md](./changelog.md)
 > 信息架构（IA）详见 [information-arch.md](./information-arch.md)
 > 商业模式与价值主张见 [../business/business-model.md](../business/business-model.md)
