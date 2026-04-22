@@ -433,10 +433,9 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 **核心原则：工程代码不入驱动面板。workspace/ 目录已被 .gitignore 忽略，所有代码变更只通过 push 到对应仓库体现，驱动面板零代码文件。**
 
 **步骤：**
-1. 读取 `engineering/{frontend|backend}/README.md` → 获取仓库地址、分支策略
-2. Clone 代码到对应 workspace/ 目录（若已存在则 git pull 更新）
-   - frontend → `engineering/frontend/workspace/`
-   - backend → `engineering/backend/workspace/`
+1. 读取 `engineering/README.md` 工程清单 → 找到目标工程的「工程名」、仓库地址、分支策略
+2. Clone 代码到 workspace 目录（若已存在则 git pull 更新）
+   - 命令：`git clone <仓库地址> engineering/workspace/<工程名>`
 3. 读取 `engineering/docs/local-setup.md` 了解本地启动方式
 4. 读取当前版本对应的技术方案：`versions/{当前版本}/engineering/tech-solution.md`
 5. **前端开发前**须读取 `versions/{当前版本}/product/prototypes/README.md` 并 clone 对应原型分支
@@ -466,8 +465,8 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 > ③ 启动原型（端口 3000），作为视觉和交互参考
 > ④ 读取 versions/v1.0.0/product/design-spec.md 确认补充交互规则（原型未覆盖的逻辑）
 > ⑤ 读取 standards/design/DESIGN.md 确认视觉规范（色彩/字体/间距）
-> ⑥ Clone 前端工程：
->    git clone <前端仓库地址> engineering/frontend/workspace
+> ⑥ 读 engineering/README.md 工程清单，找到前端工程的工程名（假设为 `web-frontend`），Clone 到：
+>    git clone <前端仓库地址> engineering/workspace/web-frontend
 > ⑦ 读取 versions/v1.0.0/engineering/tech-solution.md「前端设计」节
 > ⑧ 读取 versions/v1.0.0/engineering/api-design.md 确认接口规范
 > ⑨ 开发完成后：启动开发版（端口 3001），与原型对比视觉差异，逐项修正
@@ -560,7 +559,7 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 2. 按优先级逐步填写，通过对话方式帮助用户完成每个文件
 3. 验收清单全部 ✅ 后，方可开始版本工作（执行 SOP-01）
 
-**完成标志**：`SETUP.md` 路径一验收清单全部 ✅（15项）
+**完成标志**：`SETUP.md` 路径一验收清单全部 ✅（13项）
 
 **AI 引导策略：**
 
@@ -620,7 +619,7 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 6. 填充当前版本文档反映实际状态
 7. 补充 standards/ 规范文档
 
-**完成标志**：`SETUP.md` 路径二验收清单全部 ✅（16项）
+**完成标志**：`SETUP.md` 路径二验收清单全部 ✅（15项）
 
 **示例：确定迁移版本号**
 > 用户说：「我的产品已上线两年了，版本号应该怎么设置？」

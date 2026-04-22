@@ -89,9 +89,9 @@ graph TB
 
 | 服务/模块 | 职责 | 技术栈 | 对应工程仓库 |
 |---------|------|--------|-----------|
-| <!-- 如：API 服务 --> | <!-- 核心业务逻辑和接口 --> | <!-- Node.js/Go --> | <!-- engineering/backend --> |
-| <!-- 如：Web 前端 --> | <!-- 用户界面 --> | <!-- React --> | <!-- engineering/frontend --> |
-| <!-- 如：异步任务 --> | <!-- 通知发送、数据处理 --> | <!-- 同 API 服务 --> | <!-- engineering/backend --> |
+| <!-- 如：API 服务 --> | <!-- 核心业务逻辑和接口 --> | <!-- Node.js/Go --> | <!-- engineering/workspace/api-server --> |
+| <!-- 如：Web 前端 --> | <!-- 用户界面 --> | <!-- React --> | <!-- engineering/workspace/web-frontend --> |
+| <!-- 如：异步任务 --> | <!-- 通知发送、数据处理 --> | <!-- 同 API 服务 --> | <!-- engineering/workspace/api-server --> |
 
 ---
 

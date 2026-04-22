@@ -1,6 +1,6 @@
-# 研发工程代码不纳入驱动面板
-engineering/*/workspace/*
-!engineering/*/workspace/.gitkeep
+# 研发工程代码不纳入驱动面板（所有工程 clone 到 engineering/workspace/<name>/）
+engineering/workspace/*
+!engineering/workspace/.gitkeep
 
 # 测试工程代码不纳入驱动面板
 testing/*/workspace/*
