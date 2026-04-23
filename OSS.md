@@ -17,6 +17,7 @@
 | Region | <!-- 如：cn-hangzhou --> |
 | CDN 访问域名 | <!-- 如：https://assets.example.com --> |
 | rclone Remote 名称 | <!-- 如：niuma-hr --> |
+| **product-slug** | <!-- 产品唯一标识符，用于 OSS 路径前缀，如：niuma-hr。kebab-case，与产品名一致，初始化时确定后不再变更 --> |
 
 ---
 
