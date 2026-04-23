@@ -740,6 +740,12 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 **核心原则：git 只存 URL，文件存 OSS。上传完成后只需在文档中记录 CDN URL，本地文件无需保留在驱动面板中。**
 
 **步骤：**
+0. **前置：验证 rclone remote 是否已配置**
+   ```bash
+   rclone listremotes
+   ```
+   - 输出中包含 `OSS.md` 中的 remote 名 → 继续执行步骤 1
+   - 输出为空 / 不含对应 remote 名 → **停止上传，执行「未配置引导流程」（见 OSS.md §新主机配置引导）**
 1. 确认 rclone skill 已安装（安装方式见下方）
 2. 读取 `OSS.md` 获取：remote 名、bucket 名、CDN 域名、product-slug
 3. 按命名规范重命名文件：`{YYYYMMDD}-{描述}.{ext}`
