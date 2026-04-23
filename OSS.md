@@ -96,10 +96,8 @@ https://{CDN域名}/{product-slug}/{路径}/{文件名}
    （未安装：https://rclone.org/install/）
 
 ② 获取 AK/SK
-   从团队密钥管理工具获取：
-   - 云厂商：{见 OSS.md 配置信息}
-   - Remote 名：{见 OSS.md 配置信息}
-   - AK/SK：<!-- 填写团队密钥工具名称/链接，如 1Password / 飞书密钥库 -->
+   向管理员索取本项目专用的 OSS 访问凭证（AK/SK）。
+   - 云厂商和 Bucket 信息见本文件「配置信息」表
 
 ③ 配置 rclone remote（以阿里云 OSS 为例）
    rclone config create {remote名} s3 \
