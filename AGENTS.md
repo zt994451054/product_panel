@@ -877,6 +877,44 @@ Curl https://lobehub.com/skills/tbygamedev-claude-code-team-setup-rclone/skill.m
 
 ---
 
+### SOP-12 生产验收（UAT）
+
+**触发**：发布部署完成（release.md 全部步骤执行完毕），人类驱动 AI 开始生产验收
+
+**验收文件**：`versions/{当前版本}/testing/acceptance.md`
+
+**步骤：**
+1. **生成验收用例**（首次执行前）：
+   - 读取 `test-cases.md`（P0/P1 核心用例）
+   - 读取 `defects.md`（已修复的 P0/P1 缺陷）
+   - 读取 `CHANGES.md`（本版本重大变更）
+   - 在 `acceptance.md` 的「验收用例」区生成 AC-xxx 用例（聚焦核心链路，比测试用例更精简）
+   - **等待产品负责人确认验收范围**，调整后方可开始执行
+2. **配置验收物料**（首次执行前）：
+   - 填写 `acceptance.md`「验收环境信息」和「验收凭证」节
+3. **按轮次执行验收用例**：
+   - 逐一执行 AC-xxx，填写执行状态、实际结果、工件 URL
+   - 每轮结束后在「轮次执行摘要」追加一行，向人工汇报统计
+4. **处理验收失败用例**：
+   - P0 新 bug → 立即在 `defects.md` 新建缺陷，触发 SOP-11 hotfix，修复后重新执行失败用例
+   - P1 新 bug → 由产品负责人决定是否 hotfix，决策写入「遗留问题说明」
+   - P2/P3 新 bug → 记录到 `defects.md`，遗留说明中注明
+5. **循环直到所有退出条件满足**（见 acceptance.md 退出条件表）
+6. **产品负责人签收**：
+   - 在 `acceptance.md`「版本交付确认」行签收（填姓名 + 时间）
+   - 告知 AI 签收完成，AI 执行 SOP-07 将版本推进到「已发布」阶段
+
+**完成标志**：`acceptance.md`「版本交付确认」已签收，SOP-07 已将版本标记为「已发布」
+
+**示例：验收循环**
+> AI 执行完第 1 轮后汇报：
+> 「Round-1 验收完成：共 10 条用例，通过 8 条，失败 2 条（AC-003 P1、AC-007 P0）。
+>  已在 defects.md 创建 BUG-005（P0）、BUG-006（P1）。
+>  BUG-005 已触发 SOP-11 hotfix 流程，请确认 hotfix 方案。
+>  请告知 BUG-006 是否需要本版本修复。」
+
+---
+
 ## §6 文档落档规约
 
 
@@ -896,6 +934,7 @@ Curl https://lobehub.com/skills/tbygamedev-claude-code-team-setup-rclone/skill.m
 | 测试用例 | `versions/{ver}/testing/test-cases.md` | 单文件 |
 | 缺陷记录 | `versions/{ver}/testing/defects.md` | 单文件 |
 | 测试报告 | `versions/{ver}/testing/test-report.md` | |
+| **验收计划与用例** | `versions/{ver}/testing/acceptance.md` | 发布后生产验收，SOP-12 |
 | 版本内变更记录 | `versions/{ver}/CHANGES.md` | 先于文档修改写入 |
 | 产品架构变更 | `foundation/product-arch/` + changelog.md | 跨版本基线 |
 | 技术架构变更 | `foundation/tech-arch/` + changelog.md + decisions/ | 跨版本基线 |

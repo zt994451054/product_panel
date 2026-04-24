@@ -60,6 +60,7 @@
 | 测试 | [测试用例](./testing/test-cases.md) | ⏳ |
 | 测试 | [缺陷记录](./testing/defects.md) | ⏳ |
 | 测试 | [测试报告](./testing/test-report.md) | ⏳ |
+| 测试 | [验收计划与用例](./testing/acceptance.md) | ⏳ |
 
 ## 变更记录
 

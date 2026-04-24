@@ -122,6 +122,9 @@ kubectl rollout status deployment/api-server -n production
 - [ ] 数据库连接数正常
 - [ ] 响应时间符合非功能需求
 
+> ✅ **Step 4 通过 → 进入生产验收（SOP-12）**
+> 告知 AI「发布部署完成，开始生产验收」，AI 将执行 SOP-12，在 `testing/acceptance.md` 中生成并执行验收用例，直到产品负责人签收。
+
 ---
 
 ## 回滚方案
