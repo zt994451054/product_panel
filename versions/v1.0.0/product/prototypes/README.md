@@ -13,16 +13,28 @@
 | Web | <!-- https://github.com/org/prototype-web --> | Web 端原型工程 |
 | App | <!-- https://github.com/org/prototype-app --> | iOS/Android 原型工程 |
 | 小程序 | <!-- https://github.com/org/prototype-miniapp --> | 微信小程序原型工程 |
+| 桌面端 | <!-- https://github.com/org/prototype-desktop --> | 桌面端原型工程 |
 
-> 分支命名规则：分支名 = 版本号（如 v1.0.0）
+> **分支命名规则**：`{终端前缀}-{版本号}`
+>
+> | 终端 | 前缀 | 示例 |
+> |------|------|------|
+> | Web | `web-` | `web-v1.0.0` |
+> | App(iOS/Android) | `app-` | `app-v1.0.0` |
+> | 小程序 | `miniapp-` | `miniapp-v1.0.0` |
+> | 桌面端 | `desktop-` | `desktop-v1.0.0` |
+>
+> 每个版本的迭代终端在 `requirements.md`「本版本交互终端」表中声明，AI 根据该表决定 clone 哪些分支。
 
 ---
 
 ## 本版本迭代范围
 
+> 详细的终端迭代声明见 [requirements.md 本版本交互终端](../requirements.md#本版本交互终端)
+
 | 终端 | 本版本是否迭代 | 参考分支 | 备注 |
 |------|-------------|---------|------|
-| Web | ✅ 已迭代 | v1.0.0 | |
+| Web | ✅ 已迭代 | web-v1.0.0 | |
 | App | ❌ 未迭代 | - | 沿用上一版本设计 |
 | 小程序 | ❌ 未迭代 | - | |
 
@@ -45,9 +57,9 @@
 ## Clone 与启动
 
 ```bash
-# 只 clone 本版本迭代的终端
+# 只 clone 本版本迭代的终端（终端和分支见 requirements.md「本版本交互终端」表）
 # Web 原型（本版本已迭代）
-git clone -b v1.0.0 --single-branch \
+git clone -b web-v1.0.0 --single-branch \
   <Web仓库地址> \
   versions/v1.0.0/product/prototypes/workspace/web
 
