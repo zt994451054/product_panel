@@ -351,6 +351,34 @@ fork 空模板后，`AGENTS.md` 和 `README.md` 顶部的产品名占位符常�
 
 ---
 
+### 阶段 3.5：归档存量基线（已有产品独有）
+
+> 目的：把已运行系统的「当前快照」沉淀为基线文档，让 AI 后续日常工作
+> （增量 DDL / 接口设计稿 / 需求分析）有「现状参照」。
+> **新产品无存量，无此阶段。**
+
+| 存量类型 | 落档位置 | 填充来源 / 做法 | 优先级 |
+|---------|---------|---------------|--------|
+| 全量数据表结构 | `engineering/docs/db-schema/full-schema.md` | `mysqldump --no-data` 或合并 migration 历史 | 🔴 必须 |
+| 全量 API 清单 | `engineering/docs/api-docs/openapi.yaml` | 现有 Swagger/Postman 导出；或代码注解生成 | 🔴 必须 |
+| 全量功能清单 | `foundation/product-arch/overview.md` 模块详情表 | 对每个已上线功能补一行 | 🔴 必须 |
+| 全量服务拓扑 | `foundation/tech-arch/overview.md` 模块划分 + 架构图 | 按实际部署结构整理 | 🔴 必须 |
+| 全量外部集成 | `foundation/product-arch/overview.md` 外部集成表 | 列出所有第三方服务（短信/支付/OSS/监控） | 🔴 必须 |
+| 全量环境配置 | `engineering/docs/environments.md` | 从现有 .env.* / K8s configmap / 部署平台抽取 | 🔴 必须 |
+| 全量角色/权限矩阵 | `foundation/product-arch/overview.md` 用户角色节 | 整理所有角色和模块访问权限 | 🟢 可延后 |
+
+> **必做**：红色 🔴 六项。这是让 AI 在后续日常工作中有「现状参照」的底线 ——
+> 缺任一项，AI 写增量 DDL / 接口设计 / 需求分析时都会因缺失参照而出错。
+>
+> **分批策略**：六项可分多次完成，但**所有六项必须在阶段 3.5 结束前全部填充**，
+> 才能进入阶段 4（PRD 迁移）。仅 🟢 角色/权限矩阵 允许延后到首版迭代中补齐。
+>
+> **单工程内部细节不在此阶段归档** — 按 C 分层原则，单工程内的目录结构、
+> 启动方式、依赖版本等留在各工程仓库 README，驱动面板只在 `engineering/README.md`
+> 工程清单表的「详细说明」列链接到它们，不复制内容。
+
+---
+
 ### 阶段 4：迁移已有需求文档（PRD 导入）
 
 > 这是迁移中最常见的工作，将原有 PRD/需求文档整理到 versions/ 结构中。
@@ -445,6 +473,14 @@ fork 空模板后，`AGENTS.md` 和 `README.md` 顶部的产品名占位符常�
 - [ ] `foundation/business/business-model.md` 商业模式已填写
 - [ ] `foundation/product-arch/overview.md` 已从现有功能逆向整理模块体系
 - [ ] `foundation/tech-arch/overview.md` 已从实际技术栈填写（包含所有主要中间件）
+
+**存量基线（六项必须，仅角色/权限矩阵可延后）：**
+- [ ] `engineering/docs/db-schema/full-schema.md` 已填充全量表结构
+- [ ] `engineering/docs/api-docs/openapi.yaml` 已填充全量已上线接口
+- [ ] `foundation/product-arch/overview.md` 模块详情表已录入所有已上线功能
+- [ ] `foundation/tech-arch/overview.md` 模块划分 + 架构图已反映实际服务拓扑
+- [ ] `foundation/product-arch/overview.md` 外部集成表已列出所有第三方服务
+- [ ] `engineering/docs/environments.md` 已填充各环境实际配置项
 
 **工程配置：**
 - [ ] `engineering/README.md` 工程清单表已填写（所有工程的工程名/类型/仓库地址/本地路径/职责边界完备）
