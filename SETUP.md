@@ -64,12 +64,21 @@
 
 > 如果还没想清楚产品定位，可以先写「待确认」，完成市场调研后再更新。
 
-**Step 2：填写工程仓库地址**
+**Step 2：填写工程清单**
 
-告诉 AI 仓库地址，AI 帮你填写：
-- 前端仓库 git 地址 + 分支策略
-- 后端仓库 git 地址 + 分支策略
-- 如仓库未创建，告知 AI「待创建」即可
+告诉 AI 本产品包含哪些研发工程（1 个、2 个或 N 个均可），每个工程提供：
+- 工程名（建议 kebab-case，如 `web-frontend` / `api-server` / `app`）
+- 类型（前端 / 后端 / 全栈 / 移动端 / 微服务）
+- git 地址 + 主分支 + 分支策略
+- 职责边界（一句话说明本工程负责什么）
+
+常见形态参考：
+- 前后端分离：2 行（前端 + 后端）
+- 单仓 monolith（Next.js SSR / Django 全栈）：1 行
+- 多端 + 微服务：N 行
+- 纯前端（扩展、静态站）：1 行
+
+仓库未创建时，告知 AI「待创建」即可。AI 将把清单写入 `engineering/README.md`。
 
 
 **Step 3：确认规范层级**
@@ -197,8 +206,7 @@
 - [ ] `AGENTS.md` 第 1 行标题不含 `{产品名}` 占位符
 - [ ] `README.md` 第 1 行标题不含 `{产品名称}` 占位符
 - [ ] `README.md` 「这是什么」节已填写产品简介（不含 `<!-- -->` 占位符）
-- [ ] `engineering/frontend/README.md` 仓库地址已填写（或标注「待创建」）
-- [ ] `engineering/backend/README.md` 仓库地址已填写（或标注「待创建」）
+- [ ] `engineering/README.md` 工程清单表已填写（每个工程一行，含工程名/类型/仓库地址/本地路径/职责边界；仓库未建可标注「待创建」）
 
 **产品底座文档：**
 - [ ] `foundation/market/market-research.md` 市场调研已填写（含市场挑战和风险）
@@ -369,8 +377,7 @@ fork 空模板后，`AGENTS.md` 和 `README.md` 顶部的产品名占位符常�
 
 | 文件 | 填写内容 |
 |------|---------|
-| `engineering/frontend/README.md` | 前端仓库地址、主分支、分支策略 |
-| `engineering/backend/README.md` | 后端仓库地址、主分支、分支策略 |
+| `engineering/README.md` | 工程清单表（每个工程一行：工程名/类型/仓库/主分支/分支策略/本地路径/职责边界） |
 | `testing/integration/README.md` | 集成测试仓库（如有）|
 | `testing/e2e/README.md` | E2E 测试仓库（如有）|
 | `testing/performance/README.md` | 性能测试仓库（如有）|
@@ -440,8 +447,7 @@ fork 空模板后，`AGENTS.md` 和 `README.md` 顶部的产品名占位符常�
 - [ ] `foundation/tech-arch/overview.md` 已从实际技术栈填写（包含所有主要中间件）
 
 **工程配置：**
-- [ ] `engineering/frontend/README.md` 仓库地址和分支策略已填写
-- [ ] `engineering/backend/README.md` 仓库地址和分支策略已填写
+- [ ] `engineering/README.md` 工程清单表已填写（所有工程的工程名/类型/仓库地址/本地路径/职责边界完备）
 - [ ] 如有测试自动化工程，`testing/*/README.md` 仓库地址已填写
 
 **当前版本文档（须有实际内容，不能全空）：**
@@ -476,7 +482,7 @@ A：不需要。路径一中标🔴的项必须先填；tech-arch 在写技术�
 A：以本模板结构为准，将现有内容整理后填入对应位置。原有文档保留在原处，不需要删除。
 
 **Q：如果有多个后端微服务，仓库如何配置？**
-A：在 `engineering/backend/README.md` 中列出所有服务仓库，每个服务作为一个表格行。`workspace/` 目录按需 clone 对应服务。
+A：在 `engineering/README.md` 工程清单表中，每个微服务作为独立一行（类型列填「后端 / 微服务」，如 `user-service` / `order-service`）。各自 clone 到 `engineering/workspace/<service-name>/`。
 
 **Q：迁移时如何确定合适的版本号？**
 A：根据语义版本规则：major 表示重大架构变更，minor 表示功能迭代，patch 表示修复。通常已上线超过 1 年且有多个版本发布的产品，从 v2.x.x 或更高起始。如果不确定，与 AI 对话，描述产品历史，AI 会帮助评估。
