@@ -40,10 +40,12 @@
 - Region：（如 cn-hangzhou）
 - CDN 自定义域名：（如 https://assets.example.com）
 - Bucket 名称：
+- product-slug：（产品唯一标识符，如 niuma-hr，用于 OSS 路径前缀，kebab-case）
 ```
 
 > ⚠️ CDN 自定义域名必须提前在云厂商控制台完成绑定。这是所有文件 URL 长期稳定的基础。
 > 凭证信息只用于生成本机 rclone 配置，不会写入任何项目文件。
+> product-slug 一旦确定不再变更，所有 OSS 路径以此为前缀。
 
 **Step 1：填写产品基本信息（AGENTS.md + README.md 三处必改）**
 
@@ -265,9 +267,11 @@
 - Region：（如 cn-hangzhou）
 - CDN 自定义域名：（如 https://assets.example.com）
 - Bucket 名称：
+- product-slug：（产品唯一标识符，如 niuma-hr，用于 OSS 路径前缀，kebab-case）
 ```
 
 > ⚠️ CDN 自定义域名必须提前在云厂商控制台完成绑定。凭证信息只用于生成本机 rclone 配置，不会写入任何项目文件。
+> product-slug 一旦确定不再变更，所有 OSS 路径以此为前缀。
 
 ---
 

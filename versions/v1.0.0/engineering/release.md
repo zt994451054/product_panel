@@ -82,26 +82,28 @@
 
 ### Step 3：服务部署
 
-<!-- 根据实际部署方式填写
+> 部署前：确认 `engineering/README.md` 工程清单，结合本版本 README.md「发布关键项-服务依赖」确定部署顺序。
+> **多工程时按依赖顺序逐个部署，不并行**：有依赖关系的服务须等上游健康检查通过后再部署下游。
 
-**后端服务**：
+<!-- 按工程清单，每个工程一段。示例：
+
+**工程：api-server（后端，先部署）**
 ```bash
-# 示例：kubectl 部署
 kubectl set image deployment/api-server api-server=registry/api-server:v1.0.0 -n production
 kubectl rollout status deployment/api-server -n production
 ```
 
-**前端服务**：
+**工程：web-frontend（前端，后端健康后部署）**
 ```bash
-# 示例：静态资源发布
-# 将 build 产物上传至 CDN，更新版本号
+# 将构建产物上传至 CDN，更新版本号/路径
 ```
+
 -->
 
 **验证项**：
-- [ ] 后端服务启动正常，健康检查通过（`GET /health`）
+- [ ] 各工程服务启动正常，健康检查通过（`GET /health` 或对应端点）
 - [ ] 前端资源版本号已更新，无缓存问题
-- [ ] 服务日志无 ERROR 级别异常
+- [ ] 各服务日志无 ERROR 级别异常
 
 ---
 
