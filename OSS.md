@@ -74,3 +74,45 @@ https://{CDN域名}/{product-slug}/{路径}/{文件名}
 ```
 
 **核心原则：上传完成后只在文档中记录 CDN URL，本地文件无需保留在驱动面板中。**
+
+**上传前必做：** 执行 `rclone listremotes` 验证 remote 已配置；若未配置，停止上传，执行下方「新主机配置引导」。
+
+---
+
+## 新主机配置引导
+
+> 本节供 AI 在检测到 rclone 未配置时使用。AK/SK 跟随主机，不存入面板。
+
+当 `rclone listremotes` 未返回本项目 remote 名时，AI 告知用户：
+
+```
+⚠️ 当前主机尚未配置 OSS 访问凭证，无法上传文件。
+
+本项目使用 rclone 管理对象存储，凭证存储在本机（不入 git）。
+请按以下步骤完成一次性配置：
+
+① 确认 rclone 已安装
+   rclone version
+   （未安装：https://rclone.org/install/）
+
+② 获取 AK/SK
+   向管理员索取本项目专用的 OSS 访问凭证（AK/SK）。
+   - 云厂商和 Bucket 信息见本文件「配置信息」表
+
+③ 配置 rclone remote（以阿里云 OSS 为例）
+   rclone config create {remote名} s3 \
+     provider Alibaba \
+     access_key_id <AK> \
+     secret_access_key <SK> \
+     endpoint oss-{region}.aliyuncs.com \
+     acl private
+
+④ 验证连通性
+   rclone ls {remote名}:{bucket名}/{product-slug}/
+
+   输出文件列表即表示配置成功。
+
+配置完成后，重新执行上传操作。
+```
+
+> AI 引导完成后，在 OSS.md 配置信息表确认 remote 名/bucket/CDN 域名已填写，不填写 AK/SK。
