@@ -276,6 +276,11 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 3. 在 `versions/{当前版本}/engineering/` 下创建或修改对应文档
 4. 如是变更导致 → 先执行 SOP-04 记录变更，再修改文档
 5. 如涉及技术架构基线调整 → 同步更新 `foundation/tech-arch/` + changelog.md + decisions/ADR
+   **ADR 触发判断**（符合任一条 → 必须创建 ADR；否则只更新 overview.md 即可）：
+   - 技术选型类：引入新框架/语言/中间件，或替换现有选型（如 Redis Pub/Sub → Kafka）
+   - 重大设计决策：影响多个服务的架构边界、数据所有权、通信协议变更
+   - 不可逆或高成本变更：破坏性 API 版本、存储格式变更、不可回滚的基础设施变更
+   ❌ **不需要 ADR**：接口字段调整、DB 增量 DDL、性能优化、Bug 修复类的架构小调整
 6. 接口设计稿落档到 `versions/{ver}/engineering/api-design.md`（版本内设计稿）
    已发布的正式接口文档更新至 `engineering/docs/api-docs/openapi.yaml`
 7. **如本版本引入新的基础设施依赖**（如原来不用 Kafka，本版本要引入）→ 同步更新 `engineering/docs/local-env.md` §3 基础设施依赖矩阵（**本项在技术方案阶段即同步，不能等到发布**，因为开发者要据此配 `.env`）
@@ -533,6 +538,7 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 4. 清空各子文档正文内容，保留模板占位结构
 5. 更新 `versions/CURRENT.md` 指向新版本，阶段置为「规划中」
 6. 在 `versions/README.md` 进度矩阵中新增版本行
+7. 若新版本已在 `versions/README.md`「版本规划（近期）」表中，将其从规划表中删除（已激活，不再是规划中）
 
 **完成标志**：新版本目录已创建，CURRENT.md 已更新，进度矩阵已新增
 
