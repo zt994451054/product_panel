@@ -81,7 +81,19 @@
 仓库未创建时，告知 AI「待创建」即可。AI 将把清单写入 `engineering/README.md`。
 
 
-**Step 3：确认规范层级**
+**Step 3：定义本地开发环境模式**
+
+填 `engineering/docs/local-env.md`：
+
+- **多工程 / 微服务产品（2 个以上工程）**：必填，按 B 混合模式模板填 7 件事
+  （本地模式声明 / 端口分配 / 基础设施依赖矩阵 / 开发者隔离策略 / dev 连接方式 / 数据种子 / 服务间调用路由）
+- **单工程产品（monolith / 纯前端）**：文件头标注 "N/A，采用全本地 docker compose 模式" 即可，其余章节可留空
+
+> ⚠️ 本决策一旦确定，所有开发者都应按此一致，避免"每人电脑环境不一样"。
+> 变更（如从全本地迁到 B 混合）需通知团队并同步更新 `local-env.md`。
+
+
+**Step 4：确认规范层级**
 
 打开 `standards/README.md`，确认组织级规范的访问方式已正确配置（product_spec skill 或 URL）。
 
@@ -207,6 +219,7 @@
 - [ ] `README.md` 第 1 行标题不含 `{产品名称}` 占位符
 - [ ] `README.md` 「这是什么」节已填写产品简介（不含 `<!-- -->` 占位符）
 - [ ] `engineering/README.md` 工程清单表已填写（每个工程一行，含工程名/类型/仓库地址/本地路径/职责边界；仓库未建可标注「待创建」）
+- [ ] `engineering/docs/local-env.md` 已填写（多工程必填 7 件事；单工程可填 N/A）
 
 **产品底座文档：**
 - [ ] `foundation/market/market-research.md` 市场调研已填写（含市场挑战和风险）
@@ -406,6 +419,7 @@ fork 空模板后，`AGENTS.md` 和 `README.md` 顶部的产品名占位符常�
 | 文件 | 填写内容 |
 |------|---------|
 | `engineering/README.md` | 工程清单表（每个工程一行：工程名/类型/仓库/主分支/分支策略/本地路径/职责边界） |
+| `engineering/docs/local-env.md` | 本地开发环境档案（B 混合模式配置 / 端口分配 / 隔离策略；单工程产品可填 N/A） |
 | `testing/integration/README.md` | 集成测试仓库（如有）|
 | `testing/e2e/README.md` | E2E 测试仓库（如有）|
 | `testing/performance/README.md` | 性能测试仓库（如有）|
@@ -484,6 +498,7 @@ fork 空模板后，`AGENTS.md` 和 `README.md` 顶部的产品名占位符常�
 
 **工程配置：**
 - [ ] `engineering/README.md` 工程清单表已填写（所有工程的工程名/类型/仓库地址/本地路径/职责边界完备）
+- [ ] `engineering/docs/local-env.md` 已填写（多工程必填；单工程可填 N/A）
 - [ ] 如有测试自动化工程，`testing/*/README.md` 仓库地址已填写
 
 **当前版本文档（须有实际内容，不能全空）：**

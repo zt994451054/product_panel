@@ -163,10 +163,13 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 | 版本 | `versions/{ver}/engineering/db-design.md` | 本版本增量 DDL | 技术方案阶段（SOP-02）|
 | 基线 | `foundation/product-arch/overview.md` 模块详情 | 全量已上线功能 | 版本发布后合入（SOP-07）|
 | 版本 | `versions/{ver}/product/requirements.md` | 本版本需求 | 需求分析阶段（SOP-01）|
+| 基线 | `engineering/docs/local-env.md` §3 基础设施依赖矩阵 | 全量基础设施依赖声明 | **技术方案阶段（SOP-02）同步**，不等发布 |
+| 版本 | `versions/{ver}/engineering/tech-solution.md` 配置变更需求 | 本版本新引入的依赖 | 技术方案阶段（SOP-02）|
 
 **核心原则**：
 - **技术方案 / 需求分析阶段**：读基线（了解现状），在版本内文档写增量（本版本变更）
 - **SOP-07 推进到「已发布」阶段**：把版本内增量合入对应基线，保持基线始终反映生产现状
+- **基础设施依赖是例外**：引入新依赖要让开发者马上能配 `.env`，故在技术方案阶段就同步到 `local-env.md` §3，不等发布
 - 基线之间描述冲突 → 停止，告知用户，不自行裁量
 
 **C 分层补充**：单工程内部细节（目录结构 / 启动方式 / 依赖版本）不入驱动面板基线，
@@ -274,7 +277,8 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 5. 如涉及技术架构基线调整 → 同步更新 `foundation/tech-arch/` + changelog.md + decisions/ADR
 6. 接口设计稿落档到 `versions/{ver}/engineering/api-design.md`（版本内设计稿）
    已发布的正式接口文档更新至 `engineering/docs/api-docs/openapi.yaml`
-7. 更新版本进度（如阶段推进）
+7. **如本版本引入新的基础设施依赖**（如原来不用 Kafka，本版本要引入）→ 同步更新 `engineering/docs/local-env.md` §3 基础设施依赖矩阵（**本项在技术方案阶段即同步，不能等到发布**，因为开发者要据此配 `.env`）
+8. 更新版本进度（如阶段推进）
 
 **完成标志**：方案文档已落档，基线已同步（如有），变更已记录（如有）
 
@@ -463,12 +467,17 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 1. 读取 `engineering/README.md` 工程清单 → 找到目标工程的「工程名」、仓库地址、分支策略
 2. Clone 代码到 workspace 目录（若已存在则 git pull 更新）
    - 命令：`git clone <仓库地址> engineering/workspace/<工程名>`
-3. 读取 `engineering/docs/local-setup.md` 了解本地启动方式
-4. 读取当前版本对应的技术方案：`versions/{当前版本}/engineering/tech-solution.md`
-5. **前端开发前**须读取 `versions/{当前版本}/product/prototypes/README.md` 并 clone 对应原型分支
-6. 遵循 `standards/engineering/` 规范进行开发
-7. 开发完成后按分支策略创建分支、提交、push 到远端
-8. 驱动面板中不产生任何代码文件变更
+3. 读取 `engineering/docs/local-env.md` 了解本地模式 / 端口分配 / 隔离策略 / dev 连接方式，
+   再读 `engineering/docs/local-setup.md` 了解启动命令
+4. **基础设施依赖漂移软检查**（低成本，顺手做）：扫 workspace 下正在开发工程的依赖文件
+   （`package.json` / `go.mod` / `requirements.txt` / `pom.xml` 等），看 client 库
+   （`mysql2` / `ioredis` / `kafkajs` / `@elastic/elasticsearch` / `aws-sdk` ...）
+   是否都在 `local-env.md` §3 依赖矩阵中有对应声明。发现 drift 则提示用户同步更新 §3（走 SOP-02）。
+5. 读取当前版本对应的技术方案：`versions/{当前版本}/engineering/tech-solution.md`
+6. **前端开发前**须读取 `versions/{当前版本}/product/prototypes/README.md` 并 clone 对应原型分支
+7. 遵循 `standards/engineering/` 规范进行开发
+8. 开发完成后按分支策略创建分支、提交、push 到远端
+9. 驱动面板中不产生任何代码文件变更
 
 **完成标志**：代码已 push 到远端，驱动面板无变更
 
@@ -599,7 +608,7 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 2. 按优先级逐步填写，通过对话方式帮助用户完成每个文件
 3. 验收清单全部 ✅ 后，方可开始版本工作（执行 SOP-01）
 
-**完成标志**：`SETUP.md` 路径一验收清单全部 ✅（16项）
+**完成标志**：`SETUP.md` 路径一验收清单全部 ✅（17项）
 
 **AI 引导策略：**
 
@@ -672,7 +681,7 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 7. 填充当前版本文档反映实际状态
 8. 补充 standards/ 规范文档
 
-**完成标志**：`SETUP.md` 路径二验收清单全部 ✅（23项）
+**完成标志**：`SETUP.md` 路径二验收清单全部 ✅（24项）
 
 **示例：确定迁移版本号**
 > 用户说：「我的产品已上线两年了，版本号应该怎么设置？」
