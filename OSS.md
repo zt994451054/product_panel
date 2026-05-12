@@ -105,8 +105,12 @@ https://{CDN域名}/{product-slug}/{路径}/{文件名}
      provider Alibaba \
      access_key_id <AK> \
      secret_access_key <SK> \
-     endpoint oss-{region}.aliyuncs.com \
-     acl private
+     endpoint oss-{region}.aliyuncs.com
+
+   > ⚠️ 不设置 `acl` 参数（不传 `acl private` / `acl public-read`）
+   > 对象层不声明 ACL，自动继承桶级 ACL（公读私写）。
+   > 若显式设置 `acl private`，对象级 ACL 会覆盖桶级 ACL，
+   > 导致所有上传文件私读，CDN URL 返回 403。
 
 ④ 验证连通性
    rclone ls {remote名}:{bucket名}/{product-slug}/
