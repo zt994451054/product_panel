@@ -6,9 +6,10 @@ engineering/workspace/*
 testing/*/workspace/*
 !testing/*/workspace/.gitkeep
 
-# 高保真交互原型工程不纳入驱动面板
-versions/*/product/prototypes/workspace/*
-!versions/*/product/prototypes/workspace/.gitkeep
+# 统一原型工程：源码纳入面板，仅忽略依赖与构建产物
+foundation/design/prototype/node_modules/
+foundation/design/prototype/dist/
+foundation/design/prototype/package-lock.json
 
 # 可视化辅助工具临时文件
 .superpowers/
