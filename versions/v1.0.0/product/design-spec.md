@@ -3,7 +3,7 @@
 > 本文档定义用户交互行为与界面逻辑，功能定义见 [requirements.md](./requirements.md)
 > 所有视觉规范（色彩/字体/间距/组件样式）遵循
 > [standards/design/DESIGN.md](../../../standards/design/DESIGN.md)，本文档不重复定义
-> 高保真交互原型见 [prototypes/README.md](./prototypes/README.md)
+> 高保真交互原型见统一原型工程 [foundation/design/prototype/](../../../foundation/design/prototype/README.md)
 
 ---
 
@@ -84,6 +84,6 @@
 
 ## 说明
 
-- 本文档描述补充交互逻辑，主要视觉和交互参考见 prototypes/README.md 中的高保真原型
+- 本文档描述补充交互逻辑，主要视觉和交互参考见统一原型工程 foundation/design/prototype/ 中的高保真原型
 - 前端开发须以原型为主要视觉参考，以本文档为补充交互规则依据
 - 本文档变更通过 CHANGES.md 统一追踪 → 见 [CHANGES.md](../CHANGES.md)
