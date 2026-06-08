@@ -153,7 +153,7 @@
 ## 说明
 
 - 本文档确定技术方案，接口字段设计见 api-design.md，表结构设计见 db-design.md
-- **前端开发前**须阅读 [prototypes/README.md](../product/prototypes/README.md) 并 clone 对应原型分支
+- **前端开发前**须阅读统一原型工程 [foundation/design/prototype/README.md](../../../foundation/design/prototype/README.md)，确认终端路径并 `npm run dev` 启动作为视觉参考
 - 新增依赖和配置变更须同步更新至 engineering/docs/ 对应文档
 - 非功能需求技术实现须覆盖「非功能需求技术实现」节中所有条目
 - 方案有变更时先在 CHANGES.md 记录，再修改本文档

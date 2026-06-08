@@ -57,7 +57,7 @@
 |----|------|------|
 | 产品 | [需求文档](./product/requirements.md) | ⏳ |
 | 产品 | [产品设计](./product/design-spec.md) | ⏳ |
-| 产品 | [原型索引](./product/prototypes/README.md) | ⏳ |
+| 产品 | [统一原型](../../foundation/design/prototype/README.md) | ⏳ |
 | 研发 | [技术方案](./engineering/tech-solution.md) | ⏳ |
 | 研发 | [接口设计](./engineering/api-design.md) | ⏳ |
 | 研发 | [数据库设计](./engineering/db-design.md) | ⏳ |
