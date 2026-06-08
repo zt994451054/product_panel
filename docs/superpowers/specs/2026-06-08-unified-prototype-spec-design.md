@@ -122,14 +122,7 @@ foundation/design/prototype/
 - `versions/v1.0.0/product/prototypes/README.md`（旧模型遗留）
 - `versions/v1.0.0/product/prototypes/`（整个旧目录）
 
-## 10. 范围外（非目标）
-
-- 不支持 TV / 大屏 / 手表 / AR / VR 等终端。
-- 不在原型中接入真实 API、业务逻辑、鉴权。
-- 不把原型源码外置为独立仓库（本次明确融入面板）。
-- 不引入 Figma / 蓝湖 作为原型介质（统一为代码原型）。
-
-## 11. 已替用户决策的三个小项（已确认）
+## 10. 已替用户决策的三个小项（已确认）
 
 1. 落位选 `foundation/design/prototype/`（与 team-model 一致）。
 2. 「页面 ↔ 需求映射」下沉到 design-spec.md「原型增量」节，而非单独文件。
