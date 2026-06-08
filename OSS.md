@@ -59,7 +59,7 @@ AI 上传文件后，按此表确定 OSS 路径和嵌入位置：
 | 文件类型 | OSS 路径 | 嵌入到哪个文档 |
 |---------|---------|-------------|
 | 测试截图 / 录屏 | `versions/{ver}/testing/` | `defects.md` 或 `test-cases.md` |
-| 设计稿导出 | `versions/{ver}/design/` | `design-spec.md` 或 `prototypes/README.md` |
+| 设计稿导出 | `versions/{ver}/design/` | `design-spec.md` 或 `foundation/design/prototype/` |
 | 市调图表 / 报告 | `foundation/market/` | `market-research.md` |
 | 用研视频 / 录音 | `foundation/market/` | `user-research.md` |
 | 发布产物 | `versions/{ver}/release/` | `release.md` |

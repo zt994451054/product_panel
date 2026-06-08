@@ -288,7 +288,7 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 
 ### SOP-01 需求文档 / 产品设计类工作
 
-**触发**：被要求撰写或修改需求文档、产品设计文档、原型说明
+**触发**：被要求撰写或修改需求文档、产品设计文档、原型更新
 
 **步骤：**
 1. **如是从需求池纳入新需求**（启动版本或中途补充）：
@@ -348,8 +348,18 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 > ② 读取 versions/v1.0.0/product/requirements.md 中已确认功能模块的验收标准
 > ③ 打开 versions/v1.0.0/product/design-spec.md
 > ④ 在「全局交互规范」节定义通用行为（加载/错误/空状态/操作反馈规则）
-> ⑤ 为每个「已确认」功能模块编写用户流程和补充交互规则
+> ⑤ 为每个「已确认」功能模块编写：用户流程与页面跳转逻辑；原型未覆盖的业务规则和边界状态（原型能直接体现的视觉结构不需要在此重复描述）；版本相对统一原型的增量说明（写入 design-spec.md「原型增量」节：新增哪些页面/模块、已有页面有哪些交互变化）
 > ⑥ 执行 SOP-07：更新 versions/v1.0.0/README.md 产品设计阶段状态改为 🔄
+
+**示例：更新统一原型（新功能上线前）**
+> 用户说：「v1.0.0 设计文档已完成，帮我把新页面更新到原型里」
+>
+> AI 正确行为：
+> ① 读 standards/design/DESIGN.md 确认视觉规范
+> ② 读 versions/v1.0.0/product/design-spec.md「原型增量」节，确认需要新增或修改哪些页面
+> ③ 进入 foundation/design/prototype/，读 README.md 确认目标终端路径及启动命令
+> ④ 在对应终端目录实现目标页面/组件，npm run dev 启动后视觉验收通过
+> ⑤ 在 versions/v1.0.0/product/design-spec.md「原型增量」节标记已完成
 
 ---
 
@@ -573,7 +583,9 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
    （`mysql2` / `ioredis` / `kafkajs` / `@elastic/elasticsearch` / `aws-sdk` ...）
    是否都在 `local-env.md` §3 依赖矩阵中有对应声明。发现 drift 则提示用户同步更新 §3（走 SOP-02）。
 5. 读取当前版本对应的技术方案：`versions/{当前版本}/engineering/tech-solution.md`
-6. **前端开发前**须读取 `versions/{当前版本}/product/prototypes/README.md` 并 clone 对应原型分支
+6. **前端开发前**须启动统一原型作为视觉参考：
+   - 进入 `foundation/design/prototype/`，读 README.md 确认目标终端路径及启动命令，`npm run dev` 启动对应终端原型
+   - 同时读取 `versions/{当前版本}/product/design-spec.md`「原型增量」节，了解本版本相对原型的差异和补充逻辑
 7. 遵循 `standards/engineering/` 规范进行开发
 8. 开发完成后按分支策略创建分支、提交、push 到远端
 9. 驱动面板中不产生任何代码文件变更
@@ -589,23 +601,23 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 > ❌ 没有读技术方案就开始写代码
 > ❌ 代码写完不 push，只留在 workspace/ 本地
 
+> **唯一例外（面板内原型代码豁免）**：`foundation/design/prototype/` 是面板内维护的 React 统一原型工程，属于**设计参考物**，其源码随面板提交；这不违反「面板不产生代码」原则。产品前端代码仍只在 gitignore 的 `engineering/workspace/` 中 clone，不入面板。
+
 **示例：前端功能开发完整流程**
 > 用户说：「帮我开发 v1.0.0 注册页面的前端」
 >
 > AI 正确行为：
-> ① 读 versions/v1.0.0/product/prototypes/README.md
->    → 获取 Web 端原型仓库地址，确认本版本已迭代 Web 端
-> ② Clone 原型分支到本地：
->    git clone -b v1.0.0 <原型仓库地址> versions/v1.0.0/product/prototypes/workspace/web
-> ③ 启动原型（端口 3000），作为视觉和交互参考
-> ④ 读取 versions/v1.0.0/product/design-spec.md 确认补充交互规则（原型未覆盖的逻辑）
-> ⑤ 读取 standards/design/DESIGN.md 确认视觉规范（色彩/字体/间距）
-> ⑥ 读 engineering/README.md 工程清单，找到前端工程的工程名（假设为 `web-frontend`），Clone 到：
+> ① 进入 foundation/design/prototype/，读 README.md 确认目标终端路径及启动命令，npm run dev 启动对应终端原型（端口 5173）
+>    → 直接浏览对应页面，作为视觉和交互的第一参照
+> ② 读取 versions/v1.0.0/product/design-spec.md「原型增量」节
+>    → 确认本版本相对原型有哪些差异：新增状态、业务规则、原型未覆盖的逻辑
+> ③ 读取 standards/design/DESIGN.md 确认视觉规范（色彩/字体/间距）
+> ④ 读 engineering/README.md 工程清单，找到前端工程的工程名（假设为 `web-frontend`），Clone 到：
 >    git clone <前端仓库地址> engineering/workspace/web-frontend
-> ⑦ 读取 versions/v1.0.0/engineering/tech-solution.md「前端设计」节
-> ⑧ 读取 versions/v1.0.0/engineering/api-design.md 确认接口规范
-> ⑨ 开发完成后：启动开发版（端口 3001），与原型对比视觉差异，逐项修正
-> ⑩ 修正满意后按分支策略 push，驱动面板不产生任何代码文件变更
+> ⑤ 读取 versions/v1.0.0/engineering/tech-solution.md「前端设计」节
+> ⑥ 读取 versions/v1.0.0/engineering/api-design.md 确认接口规范
+> ⑦ 开发完成后：与统一原型（端口 5173）逐页对比视觉差异，逐项修正
+> ⑧ 修正满意后按分支策略 push，产品前端代码只在 engineering/workspace/ 产生，驱动面板的文档不产生变更
 
 ---
 
@@ -635,7 +647,7 @@ skill 未安装时不自行尝试安装，告知用户后继续执行任务。
 > ② 确认新版本号为 v1.1.0（功能迭代 → minor 版本）
 > ③ 复制 versions/v1.0.0/ 完整目录结构到 versions/v1.1.0/
 > ④ 清空以下文件正文内容（保留模板占位结构和注释）：
->    product/requirements.md / design-spec.md / prototypes/README.md
+>    product/requirements.md / design-spec.md
 >    engineering/tech-solution.md / api-design.md / db-design.md / release.md
 >    testing/test-plan.md / test-cases.md / defects.md / test-report.md
 >    CHANGES.md（清空变更汇总表和变更详情，注释模板保留）
@@ -992,8 +1004,10 @@ Curl https://lobehub.com/skills/tbygamedev-claude-code-team-setup-rclone/skill.m
 | 工作类型 | 落档位置 | 备注 |
 |---------|---------|------|
 | 需求文档、验收标准 | `versions/{ver}/product/requirements.md` | |
-| 产品设计、交互逻辑 | `versions/{ver}/product/design-spec.md` | |
-| 原型链接 / 文件 | `versions/{ver}/product/prototypes/README.md` | |
+| 产品设计、交互逻辑、版本原型增量说明 | `versions/{ver}/product/design-spec.md` | 原型能直接体现的视觉结构不必重复，重点记录业务规则、边界状态、原型增量 |
+| 统一高保真原型（跨版本持续维护） | `foundation/design/prototype/` | 单 Vite+React 应用，终端清单及启动方式见其 README.md；有新页面或重大交互变化时更新 |
+| 原型入口门户 | `foundation/design/prototype/`（路由 `/`） | 多终端选择入口，`src/pages/Portal.jsx`；新增终端时同步更新 Portal.jsx 与 App.jsx |
+| 视觉规范基线 | `standards/design/DESIGN.md` | 色彩/字体/间距/组件规则，前端开发和原型更新前必读 |
 | 技术方案 | `versions/{ver}/engineering/tech-solution.md` | |
 | 接口设计稿（版本内） | `versions/{ver}/engineering/api-design.md` | 设计阶段 |
 | 已发布正式 API 文档 | `engineering/docs/api-docs/openapi.yaml` | 发布后归档 |

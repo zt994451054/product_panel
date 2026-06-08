@@ -3,7 +3,7 @@
 > 本文档定义用户交互行为与界面逻辑，功能定义见 [requirements.md](./requirements.md)
 > 所有视觉规范（色彩/字体/间距/组件样式）遵循
 > [standards/design/DESIGN.md](../../../standards/design/DESIGN.md)，本文档不重复定义
-> 高保真交互原型见 [prototypes/README.md](./prototypes/README.md)
+> 高保真交互原型见统一原型工程 [foundation/design/prototype/](../../../foundation/design/prototype/README.md)
 
 ---
 
@@ -21,6 +21,33 @@
 | 表单校验时机 | <!-- 如：失焦时校验单个字段，提交时校验全部字段 --> |
 | 操作成功反馈 | <!-- 如：Toast 提示成功文案，持续 2 秒后自动消失 --> |
 | 操作失败反馈 | <!-- 如：Toast 提示错误原因，持续 3 秒后自动消失 --> |
+
+---
+
+## 原型增量
+
+> 本版本相对统一原型（`foundation/design/prototype/`）的差异。
+> 原型已能直接体现的视觉结构不必在此重复；重点记录增量与页面映射。
+
+### 本版本原型变更
+
+<!--
+- 新增页面/模块：如「新增 /web/console/billing 账单页」
+- 已有页面交互变化：如「/web/console/user 列表新增批量导出」
+无变更则填「无，本版本不改动原型」
+-->
+
+### 原型页面 ↔ 需求模块映射
+
+> AI 前端开发通过此表定位「实现哪个需求模块 → 参考哪个原型页面」。
+> 编写测试用例（SOP-03）时也可据此确认 UI 覆盖范围。
+
+| 原型路由 | 所属终端 | 对应需求模块 | 还原优先级 |
+|---------|---------|------------|----------|
+| <!-- 如：/web/register --> | Web | [注册模块](./requirements.md#注册模块) | 高保真 |
+| <!-- 如：/web/login --> | Web | [登录模块](./requirements.md#登录模块) | 高保真 |
+
+> 还原优先级见 `foundation/design/prototype/README.md`「还原优先级」。
 
 ---
 
@@ -57,6 +84,6 @@
 
 ## 说明
 
-- 本文档描述补充交互逻辑，主要视觉和交互参考见 prototypes/README.md 中的高保真原型
+- 本文档描述补充交互逻辑，主要视觉和交互参考见统一原型工程 foundation/design/prototype/ 中的高保真原型
 - 前端开发须以原型为主要视觉参考，以本文档为补充交互规则依据
 - 本文档变更通过 CHANGES.md 统一追踪 → 见 [CHANGES.md](../CHANGES.md)

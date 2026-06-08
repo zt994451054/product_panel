@@ -430,7 +430,7 @@ fork 空模板后，`AGENTS.md` 和 `README.md` 顶部的产品名占位符常�
 
 **多端产品（Web + App + 小程序）的处理：**
 
-在 `versions/{ver}/product/prototypes/README.md` 中，将各端设计稿/原型的地址分别填入「产品原型仓库」表格。
+在 `foundation/design/prototype/` 统一原型工程中维护各终端：在其 README.md「终端清单」表登记终端，并在 `src/pages/Portal.jsx`、`src/App.jsx` 注册对应终端入口与路由。
 
 **已有 API 文档的处理：**
 
@@ -446,7 +446,7 @@ fork 空模板后，`AGENTS.md` 和 `README.md` 顶部的产品名占位符常�
 |------|---------|
 | `versions/{ver}/product/requirements.md` | 当前迭代的功能需求（来自原有 PRD）|
 | `versions/{ver}/product/design-spec.md` | 交互规则和全局规范（来自原有设计规范）|
-| `versions/{ver}/product/prototypes/README.md` | 现有设计稿链接（Figma 等）|
+| `foundation/design/prototype/` | 统一 React 原型工程（跨版本）：把现有设计稿还原为原型页面，终端登记见其 README |
 | `versions/{ver}/engineering/tech-solution.md` | 已有或正在设计的技术方案 |
 | `versions/{ver}/engineering/api-design.md` | 正在开发的接口设计 |
 | `versions/{ver}/README.md` | 阶段进度设为实际阶段（不能全是 ⏳）|

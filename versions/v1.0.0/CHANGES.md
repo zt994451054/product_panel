@@ -32,7 +32,7 @@
 产品域：
 - [ ] 需求文档 → product/requirements.md
 - [ ] 产品设计 → product/design-spec.md
-- [ ] 原型 → product/prototypes/README.md
+- [ ] 原型 → foundation/design/prototype/（统一原型）+ product/design-spec.md「原型增量」
 
 研发域：
 - [ ] 技术方案 → engineering/tech-solution.md
