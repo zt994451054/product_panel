@@ -1,3 +1,23 @@
+# 根目录白名单：只允许以下内容，其他全部自动忽略
+/*
+
+# 允许的根目录文件
+!/.gitignore
+!/.cursorrules
+!/.windsurfrules
+!/CLAUDE.md
+!/AGENTS.md
+!/README.md
+!/SETUP.md
+!/OSS.md
+
+# 允许的顶层目录
+!/foundation/
+!/standards/
+!/engineering/
+!/testing/
+!/versions/
+
 # 研发工程代码不纳入驱动面板（所有工程 clone 到 engineering/workspace/<name>/）
 engineering/workspace/*
 !engineering/workspace/.gitkeep
@@ -6,29 +26,10 @@ engineering/workspace/*
 testing/*/workspace/*
 !testing/*/workspace/.gitkeep
 
-# 统一原型工程：源码纳入面板，仅忽略依赖与构建产物
-foundation/design/prototype/node_modules/
+# 高保真交互原型工程不纳入驱动面板
+versions/*/product/prototypes/workspace/*
+!versions/*/product/prototypes/workspace/.gitkeep
+
+# 原型设计工程构建产物与依赖（不入 git）
 foundation/design/prototype/dist/
-foundation/design/prototype/package-lock.json
-
-# 可视化辅助工具临时文件
-.superpowers/
-
-# 操作系统生成文件
-.DS_Store
-.DS_Store?
-Thumbs.db
-desktop.ini
-
-# 编辑器生成文件
-.idea/
-*.swp
-*.swo
-*~
-
-# rclone 凭证文件（不入 git，只存在本机）
-.rclone.conf
-oss-credentials.conf
-oss-secret.env
-*.credentials
-
+foundation/design/prototype/node_modules/
