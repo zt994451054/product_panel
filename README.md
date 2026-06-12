@@ -206,3 +206,8 @@ v1.0.0 已经正式发布上线了，帮我开始准备 v1.1.0。
 ```
 我不太确定 [内容描述] 应该记录在哪个文件里，帮我确认一下。
 ```
+
+
+## Community
+
+- Thanks to the [LinuxDO](https://linux.do) community for their support
