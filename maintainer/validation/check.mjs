@@ -90,7 +90,8 @@ function proseLines(text) {
       }
     })
   }
-  report('C04', '不含疑似凭据', details.length ? 'FAIL' : 'PASS', details)
+  // Users may write credentials anywhere in their own panel; this is only a heads-up, never a failure.
+  report('C04', '疑似凭据提示（不限制）', details.length ? 'WARN' : 'PASS', details)
 }
 
 // C05 relative markdown links resolve
