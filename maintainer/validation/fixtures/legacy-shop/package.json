@@ -1,0 +1,20 @@
+{
+  "name": "legacy-shop",
+  "version": "2.3.1",
+  "private": true,
+  "scripts": {
+    "start": "node src/app.js",
+    "test": "node --test",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ioredis": "^5.4.1",
+    "mysql2": "^3.11.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.5.0",
+    "@commitlint/config-conventional": "^19.5.0",
+    "eslint": "^9.12.0"
+  }
+}

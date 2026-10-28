@@ -18,6 +18,7 @@
 !/engineering/
 !/testing/
 !/versions/
+!/maintainer/
 
 # 研发工程代码不纳入驱动面板（所有工程 clone 到 engineering/workspace/<name>/）
 engineering/workspace/*
