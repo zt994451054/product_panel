@@ -1,4 +1,6 @@
 # 根目录白名单：只允许以下内容，其他全部自动忽略
+# 新建根目录文件或顶层目录时，须在下方追加对应 ! 规则，
+# 并用 `git check-ignore -v <路径>` 自检（无输出 = 不会被忽略）
 /*
 
 # 允许的根目录文件
@@ -18,6 +20,7 @@
 !/engineering/
 !/testing/
 !/versions/
+# 模板维护区（验证套件等），产品使用者可整目录删除
 !/maintainer/
 
 # 研发工程代码不纳入驱动面板（所有工程 clone 到 engineering/workspace/<name>/）
@@ -27,10 +30,6 @@ engineering/workspace/*
 # 测试工程代码不纳入驱动面板
 testing/*/workspace/*
 !testing/*/workspace/.gitkeep
-
-# 高保真交互原型工程不纳入驱动面板
-versions/*/product/prototypes/workspace/*
-!versions/*/product/prototypes/workspace/.gitkeep
 
 # 原型设计工程构建产物与依赖（不入 git）
 foundation/design/prototype/dist/

@@ -155,7 +155,9 @@ function proseLines(text) {
   for (const f of mdFiles) {
     if (f.startsWith('maintainer/')) continue
     read(f).split('\n').forEach((line, i) => {
-      if (/条件通过/.test(line)) details.push(`${f}:${i + 1} 出现「条件通过」`)
+      // Lines that forbid "conditional pass" are the rule itself, not a violation
+      const forbids = /❌|不得|禁止|没有|不能|不允许/.test(line)
+      if (/条件通过/.test(line) && !forbids) details.push(`${f}:${i + 1} 出现「条件通过」`)
       const belowFull = [...line.matchAll(/[≥>]=?\s*(\d{1,3})\s*%/g)].some((m) => Number(m[1]) < 100)
       if (/通过率|执行率|用例.*(通过|执行)/.test(line) && belowFull) details.push(`${f}:${i + 1} 用例通过率/执行率允许低于 100%`)
     })

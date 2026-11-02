@@ -8,10 +8,12 @@ import { join } from 'node:path'
 const dir = process.argv[2]
 if (!dir) throw new Error('usage: node apply.mjs <sandboxPanelDir>')
 
+// `from` may be an array of [from, to] alternatives (newer template first); the first one found is applied.
 const patch = (file, pairs) => {
   const path = join(dir, file)
   let text = readFileSync(path, 'utf8')
-  for (const [from, to] of pairs) {
+  for (const pair of pairs) {
+    const [from, to] = Array.isArray(pair[0]) ? (pair.find(([f]) => text.includes(f)) ?? pair[0]) : pair
     if (!text.includes(from)) throw new Error(`${file}: pattern not found: ${from}`)
     text = text.replaceAll(from, to)
   }
@@ -35,12 +37,24 @@ patch('versions/CURRENT.md', [
   ['- 测试: <!-- @姓名 -->', '- 测试: @小周'],
 ])
 patch('versions/README.md', [
-  ['| [v1.0.0](./v1.0.0/README.md) | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ | 规划中 | - |', '| [v1.0.0](./v1.0.0/README.md) | ✅ | ✅ | 🔄 | ⏳ | ⏳ | ⏳ | 技术方案 | - |'],
+  [
+    ['| [v1.0.0](./v1.0.0/README.md) | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ | 规划中 | - |', '| [v1.0.0](./v1.0.0/README.md) | ✅ | ✅ | 🔄 | ⏳ | ⏳ | ⏳ | ⏳ | 技术方案 | - |'],
+    ['| [v1.0.0](./v1.0.0/README.md) | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ | 规划中 | - |', '| [v1.0.0](./v1.0.0/README.md) | ✅ | ✅ | 🔄 | ⏳ | ⏳ | ⏳ | 技术方案 | - |'],
+  ],
 ])
 patch('versions/v1.0.0/README.md', [
-  ['| 需求分析 | ⏳ 待开始 | - | - | |', '| 需求分析 | ✅ 完成 | 2026-10-08 | 2026-10-13 | 两个 P0 模块已确认 |'],
-  ['| 产品设计 | ⏳ 待开始 | - | - | |', '| 产品设计 | ✅ 完成 | 2026-10-14 | 2026-10-19 | 原型已更新 |'],
-  ['| 技术方案 | ⏳ 待开始 | - | - | |', '| 技术方案 | 🔄 进行中 | 2026-10-20 | - | 方案、接口、数据库设计已写完 |'],
+  [
+    ['| 需求分析 | ⏳ 待开始 | - | - | | |', '| 需求分析 | ✅ 完成 | 2026-10-08 | 2026-10-13 | 两个 P0 模块已确认 | @小林 2026-10-13：需求确认 |'],
+    ['| 需求分析 | ⏳ 待开始 | - | - | |', '| 需求分析 | ✅ 完成 | 2026-10-08 | 2026-10-13 | 两个 P0 模块已确认 |'],
+  ],
+  [
+    ['| 产品设计 | ⏳ 待开始 | - | - | | |', '| 产品设计 | ✅ 完成 | 2026-10-14 | 2026-10-19 | 原型已更新 | @小林 2026-10-19：设计确认 |'],
+    ['| 产品设计 | ⏳ 待开始 | - | - | |', '| 产品设计 | ✅ 完成 | 2026-10-14 | 2026-10-19 | 原型已更新 |'],
+  ],
+  [
+    ['| 技术方案 | ⏳ 待开始 | - | - | | |', '| 技术方案 | 🔄 进行中 | 2026-10-20 | - | 方案、接口、数据库设计已写完 | |'],
+    ['| 技术方案 | ⏳ 待开始 | - | - | |', '| 技术方案 | 🔄 进行中 | 2026-10-20 | - | 方案、接口、数据库设计已写完 |'],
+  ],
   ['| 增量 DDL | <!-- 表结构变更说明，无则填「无」 --> | ⏳ |', '| 增量 DDL | 新增 slot、booking 两张表 | ⏳ |'],
   ['| 数据迁移脚本 | <!-- SQL 数据脚本说明，无则填「无」 --> | ⏳ |', '| 数据迁移脚本 | 无 | — |'],
   ['| 配置变更 | <!-- 环境变量/配置文件修改项，无则填「无」 --> | ⏳ |', '| 配置变更 | 新增 BOOKING_MAX_ACTIVE=3 | ⏳ |'],
