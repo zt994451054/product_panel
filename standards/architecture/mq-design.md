@@ -230,4 +230,4 @@ Producer → Topic ──→ Consumer Group A（订单服务）
 ## Related
 
 - [高可用设计规范](high-availability.md)（消息队列高可用：副本、分区、消费者组）
-- [数据库设计规范](database-design.md)（事务消息：先写数据库再发消息的一致性保证）
+- [数据库设计规范](database-design.md)（表结构与事务）

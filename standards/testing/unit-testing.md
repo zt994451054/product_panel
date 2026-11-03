@@ -262,7 +262,7 @@ def test_calculate_discount(level, expected):
 
 【禁止】没有 assert 的测试（等同于没有测试）
 
-【禁止】注释掉失败的测试（必须修复或删除）
+【禁止】注释掉或删除失败的测试来让流水线通过（必须修复；测试本身已失效时说明原因后再改）
 
 ## Related
 

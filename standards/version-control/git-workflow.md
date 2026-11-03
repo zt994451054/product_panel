@@ -61,7 +61,7 @@ release/*   ← 发布分支，命名：release/{version}
 
 命名注意：
 
-- 分支名用 `-` 连接各部分，不要同时使用 `feat/v1.2.3` 和 `feat/v1.2.3/sprint1`：git 的分支引用按路径存储，同名前缀的分支不能共存
+- 分支名用 `-` 连接各部分，不要同时使用 `feat/foo` 和 `feat/foo/bar`：git 的分支引用按路径存储，同名前缀的分支不能共存
 - 分支与环境（开发、测试、生产）的对应关系由部署流程决定，不在本页规定
 
 ---
@@ -73,7 +73,7 @@ release/*   ← 发布分支，命名：release/{version}
 | 规则 | 说明 |
 |------|------|
 | Require pull request before merging | 禁止直接 push，所有变更必须通过 PR 合并 |
-| Require at least 1 human approval | 至少 1 名人工审查者批准后才能合并 |
+| Require at least 1 human approval | 至少 1 名人工审查者批准后才能合并；单人项目可由使用者本人确认 |
 | Require status checks to pass | 已配置 CI 时，CI 检查（静态分析、单测）全部通过才能合并 |
 | Restrict who can push to matching branches | 仅限指定角色（通常为 Tech Lead）可绕过规则 |
 
