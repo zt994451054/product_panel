@@ -160,7 +160,8 @@ L1、L2 项不影响本节判断：
 | [SOP-09.5](./agents/sop/SOP-09.5-exploration.md) | 只读探索与回填 | 配置项选了 🔍 探索，或任何需要从代码、文档、线上系统整理现状写入面板的工作 |
 | [SOP-10](./agents/sop/SOP-10-file-upload.md) | 对象存储文件上传与 URL 落档 | 需要在文档中引用截图、录屏、设计稿导出、日志附件、报告 PDF 等二进制文件 |
 | [SOP-11](./agents/sop/SOP-11-hotfix.md) | 热修复版本（Hotfix） | 已发布版本发现 P0/P1 严重缺陷，需紧急修复发布，不等待下一个常规版本 |
-| [SOP-12](./agents/sop/SOP-12-production-acceptance.md) | 生产验收（UAT） | 发布部署完成（release.md 全部步骤执行完毕），人类驱动 AI 开始生产验收 |
+| [SOP-12](./agents/sop/SOP-12-production-acceptance.md) | 生产验收（UAT） | release.md「生产业务验证」全部通过，人类驱动 AI 开始生产验收；或验收中发现缺陷 |
+| [SOP-13](./agents/sop/SOP-13-ops-change.md) | 运维 / 基础设施变更 | 要改部署方式、配置来源、流水线、服务器或中间件版本、域名证书、扩缩容等运行方式，不是版本功能 |
 
 **下游自有 SOP**：基于本模板的项目新增自己的 SOP 时，编号从 50 开始，文件放 `agents/sop/`，在下表登记。00 到 49 号留给上游模板，避免合并上游时撞号（见 [agents/upgrade.md](./agents/upgrade.md)）。
 
@@ -227,6 +228,7 @@ L1、L2 项不影响本节判断：
 | 配置状态 | `SETUP.md` 配置状态表 | 状态只在这里维护 |
 | 规范 | `standards/` | 导航和状态见 `standards/README.md`，新增或修改规范后同步更新 |
 | 运维与发布画像 | `engineering/docs/ops-profile.md` | 构建、部署、回滚、生产验证的实际做法，探索生成（SOP-09.5）|
+| 运维 / 基础设施变更记录 | `engineering/docs/ops-changes.md` | 跨版本，SOP-13；完成后同步画像 |
 | 环境配置与「与生产不等价清单」 | `engineering/docs/environments.md` | |
 | 使用者提供的原始资料 | `materials/`（不入 git）| 登记到 `materials/README.md` |
 | 未立项的调研记录 | `foundation/product/research/` | 在需求池对应条目链接（SOP-00.5）|
@@ -250,7 +252,7 @@ L1、L2 项不影响本节判断：
 ❌ 在 `foundation/` 下创建版本相关的需求或方案文档（foundation 只存跨版本长期基线知识）
 ❌ 收到变更指令时直接修改文档，不先在 CHANGES.md 记录
 ❌ 修改非当前活跃版本的方案文档（如有追溯需求，只允许在原版本 CHANGES.md 追加说明，不修改原文档正文）
-❌ 将生产环境发现的 bug 记录到已发布版本的 `defects.md`（已发布版本的 defects.md 不可再追加；生产 bug 一律记录到 `foundation/product/production-bugs.md`，执行 SOP-00.6）
+❌ 将生产环境发现的 bug 记录到已发布版本的 `defects.md`（已发布版本的 defects.md 不可再追加；已发布版本的生产 bug 一律记录到 `foundation/product/production-bugs.md`，执行 SOP-00.6。还在生产验收中、未「已发布」的版本，验收发现的缺陷记本版本 defects.md，见 SOP-12）
 ❌ 在未确认环境的情况下直接记录 bug（必须先通过 SOP-00.6 第一步确认是测试环境还是生产环境，再决定记录位置）
 ❌ 删除或重命名已有文件（只允许新增或更新内容；确需删除时须用户明确指令后执行）
 ❌ 新建根目录文件或顶层目录后不同步 `.gitignore` 白名单（会被静默忽略，长期不入库；见 §6 末尾）
