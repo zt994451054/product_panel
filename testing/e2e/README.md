@@ -9,7 +9,7 @@
 
 - **Git 地址**：<!-- https://github.com/org/product-e2e-tests -->
 - **主分支**：main
-- **分支策略**：见 `standards/engineering/standards.md`
+- **分支策略**：见 `standards/version-control/git-workflow.md`
 
 ## Clone 到本地
 

@@ -22,6 +22,11 @@
 !/versions/
 # 模板维护区（验证套件等），产品使用者可整目录删除
 !/maintainer/
+# 使用者提供的原始资料，只有清单入库
+!/materials/
+
+materials/*
+!materials/README.md
 
 # 研发工程代码不纳入驱动面板（所有工程 clone 到 engineering/workspace/<name>/）
 engineering/workspace/*

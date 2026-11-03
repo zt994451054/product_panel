@@ -15,5 +15,5 @@
 | [docs/test-strategy.md](./docs/test-strategy.md) | 整体测试策略 |
 | [docs/environments.md](./docs/environments.md) | 测试环境说明 |
 
-> 测试规范见 `standards/testing/standards.md`
+> 测试规范见 `standards/testing/test-case-design.md`、`standards/testing/testing-strategy.md`
 > 版本测试方案和用例见 `versions/{version}/testing/`

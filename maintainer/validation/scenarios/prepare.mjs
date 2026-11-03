@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Builds an isolated sandbox for one L2 scenario from a given template commit.
-// Usage: node prepare.mjs <S1..S6> <runDir> [ref=HEAD]
+// Usage: node prepare.mjs <S1..S7> <runDir> [ref=HEAD]
 // The sandbox never contains maintainer/, so the acting agent cannot see rubrics.
 
 import { execFileSync, execSync } from 'node:child_process'
@@ -8,7 +8,7 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 const [scenario, runDirArg, ref = 'HEAD'] = process.argv.slice(2)
-if (!scenario || !runDirArg) throw new Error('usage: node prepare.mjs <S1..S6> <runDir> [ref]')
+if (!scenario || !runDirArg) throw new Error('usage: node prepare.mjs <S1..S7> <runDir> [ref]')
 
 const repo = resolve(import.meta.dirname, '..', '..', '..')
 const fixtures = resolve(import.meta.dirname, '..', 'fixtures')
@@ -21,8 +21,18 @@ const sh = (...args) => execFileSync('git', ['-C', panel, ...args], { encoding: 
 const commit = (msg) => { sh('add', '-A'); sh('-c', 'user.name=validator', '-c', 'user.email=validator@example.com', 'commit', '-qm', msg) }
 sh('init', '-q', '-b', 'main')
 
-if (['S3', 'S4', 'S5'].includes(scenario)) {
+if (['S3', 'S4', 'S5', 'S7'].includes(scenario)) {
   execFileSync('node', [join(fixtures, 'seed-v1', 'apply.mjs'), panel], { stdio: 'inherit' })
+}
+if (scenario === 'S7') {
+  // Standards lookup is exercised during development, so the gates are not in the way.
+  const current = join(panel, 'versions', 'CURRENT.md')
+  writeFileSync(current, readFileSync(current, 'utf8').replace('**阶段**: 技术方案', '**阶段**: 开发中'))
+  const version = join(panel, 'versions', 'v1.0.0', 'README.md')
+  writeFileSync(version, readFileSync(version, 'utf8')
+    .replace(/\| 技术方案 \| 🔄 进行中 \| 2026-10-20 \| - \|([^|]*)\| \|/, '| 技术方案 | ✅ 完成 | 2026-10-20 | 2026-10-24 |$1| @小王 2026-10-24：方案确认 |')
+    .replace('| 测试设计 | ⏳ 待开始 | - | - | | |', '| 测试设计 | ✅ 完成 | 2026-10-25 | 2026-10-28 | 用例评审通过 | @小周 2026-10-28：用例确认 |')
+    .replace('| 开发中   | ⏳ 待开始 | - | - | | |', '| 开发中   | 🔄 进行中 | 2026-10-29 | - | | |'))
 }
 if (scenario === 'S2') {
   cpSync(join(fixtures, 'legacy-shop'), join(base, 'legacy-shop'), { recursive: true })

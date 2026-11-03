@@ -35,7 +35,7 @@ E2E 测试（用户旅程）
 
 ## 覆盖率目标
 
-见 `standards/testing/standards.md` 测试分层节
+见 `standards/testing/testing-strategy.md`
 
 ## 质量门禁
 
@@ -46,7 +46,7 @@ E2E 测试（用户旅程）
 - 测试数据与生产数据严格隔离
 - 禁止在测试环境使用真实用户数据
 - 多人共用 dev 环境时遵循 `engineering/docs/local-env.md §4` 的 per-developer 隔离策略
-- 敏感测试数据（密钥/账号）通过测试环境配置注入，不硬编码
+- 测试代码里的密钥、账号通过测试环境配置注入，不硬编码在工程代码中
 
 ## 工程执行规范
 

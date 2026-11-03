@@ -173,6 +173,44 @@ function proseLines(text) {
   report('C10', '规范文件都在规范索引中', details.length ? 'FAIL' : 'PASS', details)
 }
 
+// C11 every file named in standards/README.md exists (the reverse of C10)
+{
+  const index = existsSync(join(root, 'standards/README.md')) ? read('standards/README.md') : ''
+  const named = [...index.matchAll(/\]\(([^)\s#]+\.md)\)/g)].map((m) => m[1])
+  const details = named.filter((f) => !existsSync(resolve(root, 'standards', f))).map((f) => `standards/README.md 列出了不存在的文件 ${f}`)
+  report('C11', '规范索引列出的文件都存在', details.length ? 'FAIL' : 'PASS', details)
+}
+
+// C12 the panel does not depend on an external standards skill or an upper-level standards layer
+{
+  const re = /product[_-]spec|公司级|组织级/
+  const details = []
+  for (const f of mdFiles) {
+    if (f.startsWith('maintainer/')) continue
+    read(f).split('\n').forEach((line, i) => { if (re.test(line)) details.push(`${f}:${i + 1}`) })
+  }
+  report('C12', '不依赖外部规范 skill 或上级规范', details.length ? 'FAIL' : 'PASS', details)
+}
+
+// C13 every row of the SETUP status table has a card, and every target file on a card exists
+{
+  const setup = read('SETUP.md')
+  const section = setup.split('## 配置卡片')[1] ?? ''
+  const rows = [...(setup.split('## 配置状态表')[1] ?? '').matchAll(/^\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|/gm)].map((m) => [m[1], m[2]])
+  const details = []
+  if (!rows.length) details.push('SETUP.md 没有配置状态表')
+  for (const [n, name] of rows) {
+    const card = section.split(new RegExp(`^### ${n}\\. ${name}$`, 'm'))[1]
+    if (card === undefined) { details.push(`第 ${n} 项「${name}」没有配置卡片`); continue }
+    const target = card.split(/^### /m)[0].match(/\*\*写到哪\*\*[：:](.*)/)?.[1] ?? ''
+    if (!target) details.push(`第 ${n} 项没有写「写到哪」`)
+    for (const m of target.matchAll(/`([^`]+)`/g)) {
+      if (!/[{]/.test(m[1]) && !existsSync(join(root, m[1]))) details.push(`第 ${n} 项目标文件不存在：${m[1]}`)
+    }
+  }
+  report('C13', '配置状态表与卡片、目标文件一致', details.length ? 'FAIL' : 'PASS', details)
+}
+
 // Output
 const icon = { PASS: '✅', WARN: '⚠️', FAIL: '❌' }
 console.log(`# L1 静态检查报告\n\n- 仓库：${root}\n- 提交：${git('rev-parse', '--short', 'HEAD').trim()}\n- 时间：${new Date().toISOString()}\n`)

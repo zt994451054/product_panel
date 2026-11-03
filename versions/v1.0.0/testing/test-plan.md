@@ -93,9 +93,9 @@
 
 | 测试层 | 测试内容 | 工具 | 覆盖目标 | 执行时机 |
 |--------|---------|------|---------|---------|
-| 单元测试 | 核心业务逻辑函数 | <!-- Jest/JUnit 等 --> | 新增代码 ≥ 80% | PR 提交时 CI 触发 |
-| 集成测试 | API 接口端到端调用 | <!-- Postman/REST-assured 等 --> | 本版本所有新增接口 100% | 每次 staging 部署后触发 |
-| E2E 测试 | 完整用户核心流程 | <!-- Playwright/Cypress 等 --> | 核心主流程 100% | staging 部署后触发 |
+| 单元测试 | 核心业务逻辑函数 | <!-- Jest/JUnit 等 --> | 见 `standards/testing/testing-strategy.md` | PR 提交时 CI 触发 |
+| 集成测试 | API 接口端到端调用 | <!-- Postman/REST-assured 等 --> | 见 `standards/testing/testing-strategy.md` | 每次 staging 部署后触发 |
+| E2E 测试 | 完整用户核心流程 | <!-- Playwright/Cypress 等 --> | 见 `standards/testing/testing-strategy.md` | staging 部署后触发 |
 | 性能测试 | <!-- 如有性能需求则填写，无则填「本版本不纳入」 --> | — | — | 发布前按需执行 |
 
 > 单元测试由研发在工程仓库中编写和维护，不在本目录管理
@@ -149,8 +149,6 @@
 | 管理后台 | <!-- https://admin.staging.xxx.com --> |
 
 ### 静态凭证（直接记录，执行时直接使用）
-
-> ⚠️ 仅记录测试专用账号，禁止记录生产环境凭证
 
 | 凭证类型 | 账号 / Key | 密码 / 值 | 适用角色 | 备注 |
 |---------|-----------|---------|---------|------|
