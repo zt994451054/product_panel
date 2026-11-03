@@ -19,6 +19,7 @@
    （`mysql2` / `ioredis` / `kafkajs` / `@elastic/elasticsearch` / `aws-sdk` ...）
    是否都在 `local-env.md` §3 依赖矩阵中有对应声明。发现 drift 则提示用户同步更新 §3（走 SOP-02）。
 5. 读取当前版本对应的技术方案：`versions/{当前版本}/engineering/tech-solution.md`
+5.5. **先查现有机制**：动手前在工程里搜索有没有已有的同类实现（工具函数、组件、中间件封装、重试或鉴权机制），能复用就复用；修缺陷时先找到同类问题在别处是怎么处理的。新写的东西与已有机制重复时，在提交说明里写明为什么不能复用
 6. **前端开发须按原型还原**（不是「参考」）：
    - 读取 `versions/{当前版本}/product/design-spec.md`「原型增量」节：原型基准（提交号）、本版本改动区域、页面映射表与还原优先级
    - 进入 `foundation/design/prototype/`，读 README.md 确认目标终端路径及启动命令，`npm run dev` 启动对应终端原型（原型已更新到基准之后时，以基准提交为准）

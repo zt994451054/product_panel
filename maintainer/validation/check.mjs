@@ -237,6 +237,22 @@ const sopFiles = tracked.filter((f) => /^agents\/sop\/SOP-\d{2}(?:\.\d+)?-[^/]+\
   report('C15', 'AGENTS.md 入口不超过 350 行', lines > 350 ? 'WARN' : 'PASS', lines > 350 ? [`当前 ${lines} 行`] : [])
 }
 
+// C16 test evidence (screenshots, recordings, logs, archives) is stored outside the repo (SOP-10)
+{
+  const evidence = /\.(png|jpe?g|gif|webp|mp4|mov|webm|zip|gz|har|log|pdf)$/i
+  const details = tracked.filter((f) => /^(versions|testing)\//.test(f) && evidence.test(f))
+  report('C16', '版本和测试目录没有入库的证据文件', details.length ? 'FAIL' : 'PASS', details)
+}
+
+// C17 status lives in one place: test templates carry no hand-maintained statistics tables
+{
+  const details = []
+  for (const f of ['versions/v1.0.0/testing/test-cases.md', 'versions/v1.0.0/testing/defects.md']) {
+    read(f).split('\n').forEach((line, i) => { if (/^##+ .*统计/.test(line)) details.push(`${f}:${i + 1} ${line}`) })
+  }
+  report('C17', '用例和缺陷模板没有手工统计表', details.length ? 'FAIL' : 'PASS', details)
+}
+
 // Output
 const icon = { PASS: '✅', WARN: '⚠️', FAIL: '❌' }
 console.log(`# L1 静态检查报告\n\n- 仓库：${root}\n- 提交：${git('rev-parse', '--short', 'HEAD').trim()}\n- 时间：${new Date().toISOString()}\n`)

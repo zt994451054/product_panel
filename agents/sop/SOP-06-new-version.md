@@ -11,7 +11,7 @@
 1. 确认当前版本 README.md 发布阶段状态已标记为 ✅（并行立项时跳过，按第 8 步登记）
 2. 与用户确认新版本号；先查 `versions/CURRENT.md`「在研 / 搁置版本」表和 `versions/README.md`，确认版本号没有被占用
 3. 在 `versions/` 下新建 `{新版本号}/` 目录，复制 v1.0.0/ 完整结构
-4. 清空各子文档正文内容，保留模板占位结构
+4. 清空各子文档正文内容，保留模板占位结构。上一版本的测试结果、豁免、决策、待验证假设都不继承：仍要遵守的决定和仍未解决的豁免项，在新版本里重新登记并由使用者重新确认
 5. 更新 `versions/CURRENT.md`：将「主线开发版本」改为新版本号，阶段置为「规划中」；同时将「生产运行版本」更新为刚刚发布完成的上一个版本
 6. 在 `versions/README.md` 进度矩阵中新增版本行
 7. 若新版本已在 `versions/README.md`「版本规划（近期）」表中，将其从规划表中删除（已激活，不再是规划中）
@@ -33,7 +33,7 @@
 >    product/requirements.md / design-spec.md
 >    engineering/tech-solution.md / api-design.md / db-design.md / release.md
 >    testing/test-plan.md / test-cases.md / defects.md / test-report.md
->    CHANGES.md（清空变更汇总表和变更详情，注释模板保留）
->    README.md（清空版本目标/范围/进展说明，阶段进度全部重置为 ⏳）
+>    CHANGES.md（清空变更汇总表和变更详情，注释模板保留）、decisions.md（清空表格行）
+>    README.md（清空版本目标/范围/进展说明/交接，阶段进度全部重置为 ⏳）
 > ⑤ 更新 versions/CURRENT.md：版本改为 v1.1.0，阶段改为「规划中」
 > ⑥ 更新 versions/README.md 进度矩阵：新增 v1.1.0 行，全部格填 ⏳
