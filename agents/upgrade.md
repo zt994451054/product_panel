@@ -49,6 +49,7 @@
 - AGENTS.md §5.1 表达规范核心、§5.2 协作触发条件，§7 新增协作与外部系统禁止项
 - AGENTS.md §3 新增「接手时」核对，§5 新增「维护面板本身」入口；SOP-00 新增第 4 步：改面板文件前先看 `git status`
 - `standards/deployment/incident-response.md` 复盘模板新增「规则候选」
+- AGENTS.md §4 新增：引用项目规范只引文件原文，通用做法单独标出；SOP-04 新增「不登记的情况」：咨询和未决定的想法不写 CHANGES.md
 - `versions/CURRENT.md`「在研 / 搁置版本」表；版本状态增加「挂起」「放弃」；新版本立项先在主线占号（SOP-06）
 - `foundation/product/research/`：未立项的调研记录，从需求池条目链接
 - SOP-10 不再依赖外部 rclone skill，直接按 `OSS.md` 操作
