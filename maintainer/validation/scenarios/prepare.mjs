@@ -24,18 +24,19 @@ sh('init', '-q', '-b', 'main')
 if (['S3', 'S4', 'S5', 'S7'].includes(scenario)) {
   execFileSync('node', [join(fixtures, 'seed-v1', 'apply.mjs'), panel], { stdio: 'inherit' })
 }
-if (scenario === 'S7') {
-  // Standards lookup is exercised during development, so the gates are not in the way.
+// S5 resumes during test design and S7 works during development, so earlier gates are already signed off.
+if (['S5', 'S7'].includes(scenario)) {
+  const stage = scenario === 'S5' ? '测试设计' : '开发中'
   const current = join(panel, 'versions', 'CURRENT.md')
-  writeFileSync(current, readFileSync(current, 'utf8').replace('**阶段**: 技术方案', '**阶段**: 开发中'))
+  writeFileSync(current, readFileSync(current, 'utf8').replace('**阶段**: 技术方案', `**阶段**: ${stage}`))
   const version = join(panel, 'versions', 'v1.0.0', 'README.md')
-  writeFileSync(version, readFileSync(version, 'utf8')
+  let text = readFileSync(version, 'utf8')
     .replace(/\| 技术方案 \| 🔄 进行中 \| 2026-10-20 \| - \|([^|]*)\| \|/, '| 技术方案 | ✅ 完成 | 2026-10-20 | 2026-10-24 |$1| @小王 2026-10-24：方案确认 |')
-    .replace('| 测试设计 | ⏳ 待开始 | - | - | | |', '| 测试设计 | ✅ 完成 | 2026-10-25 | 2026-10-28 | 用例评审通过 | @小周 2026-10-28：用例确认 |')
-    .replace('| 开发中   | ⏳ 待开始 | - | - | | |', '| 开发中   | 🔄 进行中 | 2026-10-29 | - | | |'))
-}
-if (scenario === 'S2') {
-  cpSync(join(fixtures, 'legacy-shop'), join(base, 'legacy-shop'), { recursive: true })
+  text = scenario === 'S5'
+    ? text.replace('| 测试设计 | ⏳ 待开始 | - | - | | |', '| 测试设计 | 🔄 进行中 | 2026-10-25 | - | | |')
+    : text.replace('| 测试设计 | ⏳ 待开始 | - | - | | |', '| 测试设计 | ✅ 完成 | 2026-10-25 | 2026-10-28 | 用例评审通过 | @小周 2026-10-28：用例确认 |')
+      .replace('| 开发中   | ⏳ 待开始 | - | - | | |', '| 开发中   | 🔄 进行中 | 2026-10-29 | - | | |')
+  writeFileSync(version, text)
 }
 commit('initial state')
 
