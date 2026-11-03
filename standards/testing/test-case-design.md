@@ -2,7 +2,7 @@
 
 > **主标准**：[ISTQB Certified Tester Foundation Level](https://istqb.org/certifications/certified-tester-foundation-level-ctfl-v4-0/)（通用测试设计技术）
 
-> **说明**：本页讲用例怎么写好。测试设计与执行的流程、门控、评审和豁免规则见 [AGENTS.md](../../AGENTS.md) SOP-03，用例记录在 `versions/{ver}/testing/test-cases.md`。
+> **说明**：本页讲用例怎么写好。测试设计与执行的流程、门控、评审和豁免规则见 [SOP-03](../../agents/sop/SOP-03-testing.md)，用例记录在 `versions/{ver}/testing/test-cases.md`。
 
 ---
 
@@ -194,7 +194,7 @@ design-spec.md 用户流程里的每个分支都要有用例。下面的方法�
 
 ## Related
 
-- [AGENTS.md](../../AGENTS.md) SOP-03（流程、门控、豁免规则）
+- [SOP-03](../../agents/sop/SOP-03-testing.md)（流程、门控、豁免规则）
 - [测试策略总览](testing-strategy.md)
 - [单元测试规范](unit-testing.md)（自动化测试的命名、边界值、数据驱动写法）
 - [性能测试规范](performance-testing.md)

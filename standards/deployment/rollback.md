@@ -205,7 +205,7 @@ UPDATE orders SET deleted_at = NULL WHERE id = '...' AND deleted_at IS NOT NULL;
 □ 在 versions/{ver}/engineering/release.md 记录回滚结果
 ```
 
-回滚后仍需修复的问题按生产缺陷处理，见 [AGENTS.md](../../AGENTS.md) SOP-00.6；P0/P1 需要紧急修复时走 SOP-11。
+回滚后仍需修复的问题按生产缺陷处理，见 [SOP-00.6](../../agents/sop/SOP-00.6-production-bugs.md)；P0/P1 需要紧急修复时走 SOP-11。
 
 ## Related
 

@@ -53,13 +53,13 @@ DORA 研究定义了衡量 DevOps 能力的四个核心指标（分档数值随�
 | `develop` | merge | 构建 + 完整测试 + 部署开发环境 |
 | `release/*` | merge | 构建 + 完整测试 + 部署验证环境 |
 | `main` / `master` | merge | 部署生产（晋级已验证的制品）|
-| `hotfix/*` | merge | 走 [AGENTS.md](../../AGENTS.md) SOP-11，测试底线不放宽 |
+| `hotfix/*` | merge | 走 [SOP-11](../../agents/sop/SOP-11-hotfix.md)，测试底线不放宽 |
 
 ---
 
 ## 流水线门禁
 
-底线只有一条：**检查或测试失败就阻断后续步骤，不带着失败项往下走。** 发布放行以 [AGENTS.md](../../AGENTS.md) SOP-03 的测试底线为准。
+底线只有一条：**检查或测试失败就阻断后续步骤，不带着失败项往下走。** 发布放行以 [SOP-03](../../agents/sop/SOP-03-testing.md) 的测试底线为准。
 
 典型流水线（示例，阶段按项目裁剪）：
 
@@ -174,7 +174,7 @@ ENTRYPOINT ["/app/server"]
 
 **可选做法：生产发布约束（由项目决定是否采用）**
 
-- 审批：生产部署前由一名 Reviewer 审批；单人项目可由使用者本人确认。面板的阶段门禁见 [AGENTS.md](../../AGENTS.md) SOP-07，不因此改变
+- 审批：生产部署前由一名 Reviewer 审批；单人项目可由使用者本人确认。面板的阶段门禁见 [SOP-07](../../agents/sop/SOP-07-stage-gate.md)，不因此改变
 - 发布窗口：安排在业务低峰期，紧急修复除外
 
 ## Related

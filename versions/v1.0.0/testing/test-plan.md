@@ -4,7 +4,7 @@
 > 整体测试策略见 [testing/docs/test-strategy.md](../../../testing/docs/test-strategy.md)
 > 测试环境配置见 [testing/docs/environments.md](../../../testing/docs/environments.md)
 >
-> 本计划在「测试设计」阶段（开发开始前）完成，与 [test-cases.md](./test-cases.md) 一起作为进入开发的门控条件（AGENTS.md SOP-03 A / SOP-07）。
+> 本计划在「测试设计」阶段（开发开始前）完成，与 [test-cases.md](./test-cases.md) 一起作为进入开发的门控条件（[SOP-03](../../../agents/sop/SOP-03-testing.md) A / SOP-07）。
 
 ---
 
@@ -207,7 +207,7 @@
 | 性能测试 | 如 requirements.md 有性能要求，接口响应时间达标率 ≥ 99%；无性能要求则此条不适用 |
 | 测试报告 | 已完成，结论为「通过」或「不通过」（没有「条件通过」） |
 
-> 退出条件不得放宽。AI 不能替使用者豁免；使用者答复「你决定」「都行」视为未豁免（AGENTS.md SOP-03 豁免规则）。
+> 退出条件不得放宽。AI 不能替使用者豁免；使用者答复「你决定」「都行」视为未豁免（[SOP-03](../../../agents/sop/SOP-03-testing.md) 豁免规则）。
 
 ---
 

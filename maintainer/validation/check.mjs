@@ -34,10 +34,10 @@ function proseLines(text) {
   return out
 }
 
-// C01 every referenced SOP number has a heading definition in AGENTS.md
+// C01 every referenced SOP number has a definition: a file under agents/sop/ whose first heading is that SOP
+const sopFiles = tracked.filter((f) => /^agents\/sop\/SOP-\d{2}(?:\.\d+)?-[^/]+\.md$/.test(f) && existsSync(join(root, f)))
 {
-  const agents = read('AGENTS.md')
-  const defined = new Set([...agents.matchAll(/^#{2,4}\s+(SOP-\d{2}(?:\.\d+)?)\b/gm)].map((m) => m[1]))
+  const defined = new Set(sopFiles.map((f) => read(f).match(/^#\s+(SOP-\d{2}(?:\.\d+)?)\b/m)?.[1]).filter(Boolean))
   const missing = new Map()
   for (const f of mdFiles) {
     if (f.startsWith('maintainer/')) continue
@@ -50,8 +50,8 @@ function proseLines(text) {
       }
     })
   }
-  const details = [...missing].map(([sop, locs]) => `${sop} 被引用 ${locs.length} 次但没有标题定义，例如 ${locs.slice(0, 3).join(', ')}`)
-  report('C01', 'SOP 引用都有标题定义', details.length ? 'FAIL' : 'PASS', details)
+  const details = [...missing].map(([sop, locs]) => `${sop} 被引用 ${locs.length} 次但没有 SOP 文件，例如 ${locs.slice(0, 3).join(', ')}`)
+  report('C01', 'SOP 引用都有定义文件', details.length ? 'FAIL' : 'PASS', details)
 }
 
 // C02 every AI entry file points to AGENTS.md
@@ -137,14 +137,15 @@ function proseLines(text) {
 
 // C08 stage order in SOP-07 matches the version stage table
 {
-  const agents = read('AGENTS.md')
+  const stageGate = sopFiles.find((f) => f.includes('/SOP-07-'))
+  const agents = stageGate ? read(stageGate) : ''
   const order = (agents.match(/\*\*阶段顺序\*\*[：:]\s*(.+)/)?.[1] ?? '').split('→').map((s) => s.trim()).filter(Boolean)
   const verReadme = 'versions/v1.0.0/README.md'
   const section = existsSync(join(root, verReadme)) ? (read(verReadme).split('## 阶段进度')[1] ?? '').split(/\n#|\n\s*\n(?!\|)/)[0] : ''
   const table = [...section.matchAll(/^\|\s*([^|\-][^|]*?)\s*\|/gm)].map((m) => m[1].trim()).filter((s) => s !== '阶段')
   const inner = order.filter((s) => !['规划中', '已发布'].includes(s))
   const details = []
-  if (!order.length) details.push('AGENTS.md 未找到「阶段顺序」')
+  if (!order.length) details.push('SOP-07 未找到「阶段顺序」')
   if (inner.join('|') !== table.join('|')) details.push(`阶段顺序（去掉规划中/已发布）：${inner.join(' → ')}`, `版本阶段表：${table.join(' → ')}`)
   report('C08', '阶段顺序与版本阶段表一致', details.length ? 'FAIL' : 'PASS', details)
 }
@@ -186,7 +187,8 @@ function proseLines(text) {
   const re = /product[_-]spec|公司级|组织级/
   const details = []
   for (const f of mdFiles) {
-    if (f.startsWith('maintainer/')) continue
+    // The upgrade guide records the removal of the old dependency, so it is allowed to name it
+    if (f.startsWith('maintainer/') || f === 'agents/upgrade.md') continue
     read(f).split('\n').forEach((line, i) => { if (re.test(line)) details.push(`${f}:${i + 1}`) })
   }
   report('C12', '不依赖外部规范 skill 或上级规范', details.length ? 'FAIL' : 'PASS', details)
@@ -209,6 +211,30 @@ function proseLines(text) {
     }
   }
   report('C13', '配置状态表与卡片、目标文件一致', details.length ? 'FAIL' : 'PASS', details)
+}
+
+// C14 SOP numbers are unique, file names match their headings, and the AGENTS.md index matches the files
+{
+  const details = []
+  const seen = new Map()
+  for (const f of sopFiles) {
+    const id = f.match(/SOP-\d{2}(?:\.\d+)?/)[0]
+    const heading = read(f).match(/^#\s+(SOP-\d{2}(?:\.\d+)?)\b/m)?.[1]
+    if (heading !== id) details.push(`${f} 的标题编号是 ${heading ?? '无'}，与文件名不一致`)
+    seen.set(id, [...(seen.get(id) ?? []), f])
+  }
+  for (const [id, fs] of seen) if (fs.length > 1) details.push(`${id} 重复：${fs.join('、')}`)
+  const index = read('AGENTS.md')
+  const linked = [...index.matchAll(/\]\(\.\/(agents\/sop\/[^)]+\.md)\)/g)].map((m) => m[1])
+  for (const f of sopFiles) if (!linked.includes(f)) details.push(`${f} 不在 AGENTS.md §5 索引中`)
+  for (const f of linked) if (!sopFiles.includes(f)) details.push(`AGENTS.md 索引指向不存在的 ${f}`)
+  report('C14', 'SOP 编号唯一且与索引一致', details.length ? 'FAIL' : 'PASS', details)
+}
+
+// C15 AGENTS.md stays a short entry that is loaded in every conversation
+{
+  const lines = read('AGENTS.md').split('\n').length
+  report('C15', 'AGENTS.md 入口不超过 350 行', lines > 350 ? 'WARN' : 'PASS', lines > 350 ? [`当前 ${lines} 行`] : [])
 }
 
 // Output

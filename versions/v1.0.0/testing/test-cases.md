@@ -4,7 +4,7 @@
 > 需求验收标准来源：[product/requirements.md](../product/requirements.md)
 > 交互与原型来源：[product/design-spec.md](../product/design-spec.md)；改动点来源：[engineering/tech-solution.md](../engineering/tech-solution.md)
 >
-> 用例在「测试设计」阶段（开发开始前）完成，须满足 AGENTS.md SOP-03 的测试底线：覆盖不遗漏、四要素完整、预期可判定。
+> 用例在「测试设计」阶段（开发开始前）完成，须满足 [SOP-03](../../../agents/sop/SOP-03-testing.md) 的测试底线：覆盖不遗漏、四要素完整、预期可判定。
 
 ---
 
@@ -25,7 +25,7 @@
 ## 用例评审
 
 > 测试设计阶段结束前，由未参与编写的人（或未参与编写的会话 / 子 agent）独立评审：自己从需求、设计、技术方案重新清点特性点和分支，再与覆盖矩阵对比，并逐条检查测试底线。
-> 结论不通过或有未解决意见时不能进入开发（AGENTS.md SOP-03 第 10 步）。
+> 结论不通过或有未解决意见时不能进入开发（[SOP-03](../../../agents/sop/SOP-03-testing.md) 第 10 步）。
 
 **评审结论**：<!-- 通过 / 不通过；复评后更新 -->
 

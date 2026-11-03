@@ -5,7 +5,7 @@
 
 本页是通用底线和可选做法；本项目实际做法见 [运维与发布画像](../../engineering/docs/ops-profile.md)。
 
-本页管服务恢复和复盘。缺陷的记录和修复走面板流程：生产缺陷按 [AGENTS.md](../../AGENTS.md) SOP-00.6 确认环境、分级并归档到 [生产缺陷池](../../foundation/product/production-bugs.md)，处理策略由使用者决定；需要紧急修复时走 SOP-11 热修复。
+本页管服务恢复和复盘。缺陷的记录和修复走面板流程：生产缺陷按 [SOP-00.6](../../agents/sop/SOP-00.6-production-bugs.md) 确认环境、分级并归档到 [生产缺陷池](../../foundation/product/production-bugs.md)，处理策略由使用者决定；需要紧急修复时走 SOP-11 热修复。
 
 ---
 

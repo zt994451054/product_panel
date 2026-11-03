@@ -28,6 +28,7 @@
 
 | 目录 | 用途 |
 |------|------|
+| `agents/` | AI 操作面板的流程（SOP）、协作与表达规则，入口是 `AGENTS.md` |
 | `standards/` | 规范层：10 个领域的默认规范，可直接沿用或修改，导航见 [standards/README.md](./standards/README.md) |
 | `foundation/` | 项目基础文档（市场调研/商业模式/产品架构/技术架构） |
 | `versions/` | 版本中心，当前版本见 `versions/CURRENT.md` |

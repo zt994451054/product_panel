@@ -21,6 +21,7 @@
 !/testing/
 !/versions/
 # 模板维护区（验证套件等），产品使用者可整目录删除
+!/agents/
 !/maintainer/
 # 使用者提供的原始资料，只有清单入库
 !/materials/

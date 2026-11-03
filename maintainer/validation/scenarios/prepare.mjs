@@ -40,22 +40,29 @@ if (scenario === 'S2') {
 commit('initial state')
 
 if (scenario === 'S6') {
-  // Upstream and fork both add a new SOP-13 at the same place: the conflict that once silently dropped a fork's own SOP.
-  const insertBefore = '\n---\n\n## §6 文档落档规约'
-  const addSop = (title, body) => {
-    const path = join(panel, 'AGENTS.md')
+  // Upstream and a legacy fork both add their own SOP-13: different file names, so git reports no
+  // conflict on the files themselves, only on the index row. This is how a fork's SOP once got lost.
+  const agents = join(panel, 'AGENTS.md')
+  const sopDir = join(panel, 'agents', 'sop')
+  const edit = (path, from, to) => {
     const text = readFileSync(path, 'utf8')
-    writeFileSync(path, text.replace(insertBefore, `\n---\n\n### ${title}\n\n${body}\n${insertBefore}`))
+    if (!text.includes(from)) throw new Error(`${path}: pattern not found: ${from}`)
+    writeFileSync(path, text.replace(from, to))
+  }
+  const addSop = (file, title, body) => {
+    writeFileSync(join(sopDir, file), `# ${title}\n\n${body}\n`)
+    const text = readFileSync(agents, 'utf8')
+    const row = text.split('\n').find((l) => l.startsWith('| [SOP-12]'))
+    const [id, ...rest] = title.split(' ')
+    writeFileSync(agents, text.replace(row, `${row}\n| [${id}](./agents/sop/${file}) | ${rest.join(' ')} | ${body.match(/\*\*触发\*\*：(.*)/)[1]} |`))
   }
   sh('branch', 'upstream')
-  addSop('SOP-13 线上问题研判', '**触发**：线上出现问题需要判断是否走热修复。\n\n**步骤：**\n1. 读取 `foundation/product/production-bugs.md` 确认是否已有记录\n2. 收集现象、影响范围、首次出现时间\n3. 给出「热修复 / 下版本修复 / 不修复」建议，由负责人决定')
-  const fork = join(panel, 'AGENTS.md')
-  writeFileSync(fork, readFileSync(fork, 'utf8').replace('**触发**：用户反馈生产环境有问题，或描述了一个 bug', '**触发**：用户反馈生产环境有问题，或描述了一个 bug（先按 SOP-13 线上问题研判）'))
+  addSop('SOP-13-production-triage.md', 'SOP-13 线上问题研判', '**触发**：线上出现问题需要判断是否走热修复。\n\n**步骤：**\n1. 读取 `foundation/product/production-bugs.md` 确认是否已有记录\n2. 收集现象、影响范围、首次出现时间\n3. 给出「热修复 / 下版本修复 / 不修复」建议，由负责人决定')
+  edit(join(sopDir, 'SOP-00.6-production-bugs.md'), '**触发**：用户反馈生产环境有问题，或描述了一个 bug', '**触发**：用户反馈生产环境有问题，或描述了一个 bug（先按 SOP-13 线上问题研判）')
   commit('fork: add SOP-13 production issue triage')
   sh('checkout', '-q', 'upstream')
-  addSop('SOP-13 阶段门控评审', '**触发**：阶段推进前，需要对产出做一次独立评审。\n\n**步骤：**\n1. 按阶段读取产出物\n2. 由非作者对照对应规范逐项检查\n3. 记录评审结论，未通过不得推进')
-  const up = join(panel, 'AGENTS.md')
-  writeFileSync(up, readFileSync(up, 'utf8').replace('**推进前检查（阶段门控）**：', '**推进前检查（阶段门控，评审方法见 SOP-13）**：'))
+  addSop('SOP-13-gate-review.md', 'SOP-13 阶段门控评审', '**触发**：阶段推进前，需要对产出做一次独立评审。\n\n**步骤：**\n1. 按阶段读取产出物\n2. 由非作者对照对应规范逐项检查\n3. 记录评审结论，未通过不得推进')
+  edit(join(sopDir, 'SOP-07-stage-gate.md'), '**推进前检查（阶段门控）**：', '**推进前检查（阶段门控，评审方法见 SOP-13）**：')
   commit('upstream: add SOP-13 gate review')
   sh('checkout', '-q', 'main')
 }

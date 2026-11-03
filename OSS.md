@@ -1,7 +1,7 @@
 # OSS.md — 对象存储配置与使用规范
 
 > 本文件记录本项目的 OSS 配置信息和文件管理约定。
-> rclone 的安装、配置、命令操作由 rclone skill 处理。
+> 上传流程见 [SOP-10](./agents/sop/SOP-10-file-upload.md)；rclone 安装见 https://rclone.org/install/。
 > 访问密钥（AK/SK）配置在本机 rclone 里才能上传；想记录在面板文档里也可以。
 
 ---
