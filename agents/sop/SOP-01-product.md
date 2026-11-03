@@ -9,7 +9,7 @@
    - 更新 backlog.md：「纳入版本」填当前版本号，状态改为「已纳入版本」（SOP-00.5）
 2. 在 `versions/{当前版本}/product/requirements.md` 下创建或补充功能模块（将 backlog 需求点展开为完整需求）
 3. 如是需求变更 → 先执行 SOP-04 记录变更，再修改文档
-4. 如涉及产品架构调整 → 同步更新 `foundation/product-arch/` + changelog.md
+4. 如涉及产品架构调整 → 同步更新 `foundation/product-arch/` + changelog.md（版本需求与基线有差异时怎么处理见 [baselines.md](../baselines.md)）
 5. **产品设计收尾时固定原型基准**：原型更新完成并提交后，在 `design-spec.md`「原型增量」节填写原型基准（面板提交号 + 原型路径）、本版本改动区域、页面映射表的还原优先级、设计验收点；还原优先级在此确定，后续测试阶段不得下调
 6. 更新 `versions/{当前版本}/README.md` 阶段进度（如阶段推进）；产品设计完成后请使用者签收，再按 SOP-07 推进
 

@@ -6,7 +6,7 @@
 
 ## 步骤
 
-1. **先读下方「模板改动记录」**，找出自上次合并以来的条目，尤其是标了「破坏性」的
+1. **先读下方「模板改动记录」**，找出自上次合并以来的条目，尤其是标了「破坏性」的。记录没覆盖的上游改动，用 `git diff` 逐个查看
 2. **在独立分支上合并**：从最新的远端主线切分支，再合并上游。不在日常工作区直接合并
 3. **逐个解决冲突，不整文件取一边**。不要对整个文件用 `ours` / `theirs`，那会静默丢掉另一边的改动
    - `AGENTS.md`：保留下游填写的 §1 产品信息和下游自有 SOP 索引，其余以上游为准，再补回下游自己加的规则
@@ -15,7 +15,7 @@
    - `standards/`：下游改过的规范保留下游版本，`standards/README.md` 中状态为「已定制」的不覆盖
    - `versions/`、`foundation/`、`engineering/docs/` 中下游已填写的内容：保留下游
 4. **按「核对清单」逐项检查**
-5. **在 [rules-log.md](./rules-log.md) 记一条**：合并了哪些上游改动、下游做了哪些取舍
+5. **在 [rules-log.md](./rules-log.md) 记一条**：合并了哪些上游改动、下游做了哪些取舍、核对清单用了哪些命令和结果
 
 ## 核对清单
 
@@ -24,7 +24,7 @@
 | SOP 编号不重复 | `ls agents/sop/ \| cut -d- -f1-2 \| sort \| uniq -d` | 无输出 |
 | 下游 SOP 在下游号段 | 看下游新增的 SOP 文件名 | 编号不小于 50 |
 | SOP 索引与文件一致 | 对比 AGENTS.md §5 两张索引表与 `agents/sop/` 文件列表 | 一一对应 |
-| 引用的 SOP 都存在 | `grep -rhoE "SOP-[0-9]{2}(\.[0-9]+)?" --include=*.md . \| sort -u`，逐个确认有文件 | 都有 |
+| 引用的 SOP 都存在 | `grep -rhoE "SOP-[0-9]{2}(\.[0-9]+)?" --include=*.md --exclude-dir=maintainer . \| sort -u`，逐个确认有文件 | 都有 |
 | 下游自有内容没丢 | 对比合并前后的下游自有 SOP、规则、RULE 记录 | 都还在 |
 | 相对链接有效 | 打开改动过的文件，检查链接目标 | 无断链 |
 | 新文件没被忽略 | `git status --ignored`，对新增的顶层文件或目录运行 `git check-ignore -v <路径>` | 应入库的没有被忽略 |
@@ -47,6 +47,8 @@
 **新增**
 - `agents/README.md`（收录规则）、`communication.md`（表达规范）、`collaboration.md`（子 agent、外部系统写操作、无人值守、交接、分支）、`rules-log.md`（下游规则变更记录）、本文件
 - AGENTS.md §5.1 表达规范核心、§5.2 协作触发条件，§7 新增协作与外部系统禁止项
+- AGENTS.md §3 新增「接手时」核对，§5 新增「维护面板本身」入口；SOP-00 新增第 4 步：改面板文件前先看 `git status`
+- `standards/deployment/incident-response.md` 复盘模板新增「规则候选」
 - `versions/CURRENT.md`「在研 / 搁置版本」表；版本状态增加「挂起」「放弃」；新版本立项先在主线占号（SOP-06）
 - `foundation/product/research/`：未立项的调研记录，从需求池条目链接
 - SOP-10 不再依赖外部 rclone skill，直接按 `OSS.md` 操作

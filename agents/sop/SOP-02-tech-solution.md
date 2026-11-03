@@ -3,7 +3,7 @@
 **触发**：被要求撰写或修改技术方案、接口设计、数据库设计、发布流程
 
 **步骤：**
-1. 读取 `foundation/tech-arch/overview.md` 了解技术架构基线
+1. 读取 `foundation/tech-arch/overview.md` 了解技术架构基线；版本内只写增量，与基线有差异时按 [baselines.md](../baselines.md) 处理
 2. 按 AGENTS.md §4 读相关规范：`standards/architecture/`、`standards/security/`，以及本版本用到的 `standards/middleware/` 文件；发布相关内容以 `engineering/docs/ops-profile.md` 为准
 3. 在 `versions/{当前版本}/engineering/` 下创建或修改对应文档
 4. 如是变更导致 → 先执行 SOP-04 记录变更，再修改文档
