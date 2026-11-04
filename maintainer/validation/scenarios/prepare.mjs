@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Builds an isolated sandbox for one L2 scenario from a given template commit.
-// Usage: node prepare.mjs <S1..S9> <runDir> [ref=HEAD]
+// Usage: node prepare.mjs <S1..S10> <runDir> [ref=HEAD]
 // The sandbox never contains maintainer/, so the acting agent cannot see rubrics.
 
 import { execFileSync, execSync } from 'node:child_process'
@@ -8,7 +8,7 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 const [scenario, runDirArg, ref = 'HEAD'] = process.argv.slice(2)
-if (!scenario || !runDirArg) throw new Error('usage: node prepare.mjs <S1..S9> <runDir> [ref]')
+if (!scenario || !runDirArg) throw new Error('usage: node prepare.mjs <S1..S10> <runDir> [ref]')
 
 const repo = resolve(import.meta.dirname, '..', '..', '..')
 const fixtures = resolve(import.meta.dirname, '..', 'fixtures')
@@ -21,7 +21,7 @@ const sh = (...args) => execFileSync('git', ['-C', panel, ...args], { encoding: 
 const commit = (msg) => { sh('add', '-A'); sh('-c', 'user.name=validator', '-c', 'user.email=validator@example.com', 'commit', '-qm', msg) }
 sh('init', '-q', '-b', 'main')
 
-if (['S3', 'S4', 'S5', 'S7', 'S8', 'S9'].includes(scenario)) {
+if (['S3', 'S4', 'S5', 'S7', 'S8', 'S9', 'S10'].includes(scenario)) {
   execFileSync('node', [join(fixtures, 'seed-v1', 'apply.mjs'), panel], { stdio: 'inherit' })
 }
 // S9 starts at release: every earlier stage is signed off, tests passed, and v1.1.0 is in progress in parallel.

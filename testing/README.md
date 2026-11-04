@@ -7,6 +7,7 @@
 | 集成测试 | 测试 API/服务间协作 | 每次 CI 触发 | [integration/](./integration/README.md) |
 | E2E 自动化 | 测试完整用户流程 | Staging 部署后触发 | [e2e/](./e2e/README.md) |
 | 性能测试 | 压测/负载测试 | 版本发布前执行 | [performance/](./performance/README.md) |
+| 冒烟测试（可选模块） | 部署后的几条快速检查 | 部署后自动或手动 | [smoke/](./smoke/README.md)（在 `SETUP.md`「可选模块」启用后使用） |
 
 ## 测试文档索引
 

@@ -28,6 +28,7 @@
 | 涉及登录、权限、敏感数据 | `security/` |
 | 发布、回滚、监控、处理故障 | `deployment/`；项目实际做法见 [运维与发布画像](../engineering/docs/ops-profile.md) |
 | 写文档 | `documentation/` |
+| 改用户可见文案、翻译（已启用多语言模块时） | [i18n/README.md](./i18n/README.md) |
 
 ---
 
@@ -52,6 +53,12 @@
 |------|------|------|--------|
 | [DESIGN.md](./design/DESIGN.md) | 色彩、字体、间距、组件的实际值，原型和前端直接使用 | 待填写 | awesome-design-md 格式 |
 | [README.md](./design/README.md) | DESIGN.md 的使用规则 | 默认 | — |
+
+### i18n 多语言（可选模块）
+
+| 文件 | 说明 | 状态 | 主标准 |
+|------|------|------|--------|
+| [README.md](./i18n/README.md) | 文案母版、key、插值、术语与语言范围。在 `SETUP.md`「可选模块」启用后才生效 | 待填写 | — |
 
 ### architecture 架构设计
 

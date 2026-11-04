@@ -253,6 +253,23 @@ const sopFiles = tracked.filter((f) => /^agents\/sop\/SOP-\d{2}(?:\.\d+)?-[^/]+\
   report('C17', '用例和缺陷模板没有手工统计表', details.length ? 'FAIL' : 'PASS', details)
 }
 
+// C18 every optional module in SETUP.md points to an existing module file with the required sections
+{
+  const section = read('SETUP.md').split('### 可选模块')[1]?.split(/^#{2,3} /m)[0] ?? ''
+  const rows = [...section.matchAll(/^\|\s*([^|]+?)\s*\|[^|]*\|\s*\[[^\]]*\]\(\.\/([^)]+)\)\s*\|\s*([^|]*?)\s*\|\s*([^|]*?)\s*\|/gm)]
+  const details = []
+  if (!rows.length) details.push('SETUP.md 没有「可选模块」表')
+  for (const [, name, file, status, record] of rows) {
+    if (!existsSync(join(root, file))) { details.push(`${name}：模块文件不存在 ${file}`); continue }
+    const text = read(file)
+    if (!text.includes('🧩 **可选模块**')) details.push(`${file} 顶部没有可选模块标识`)
+    for (const h of ['## 启用时要做', '启用后的附加要求']) if (!text.includes(h)) details.push(`${file} 缺少「${h}」`)
+    if (!['未启用', '已启用'].includes(status)) details.push(`${name}：状态「${status}」不是「未启用」或「已启用」`)
+    if (status === '已启用' && !record) details.push(`${name}：已启用但「记录」列为空`)
+  }
+  report('C18', '可选模块登记与模块文件一致', details.length ? 'FAIL' : 'PASS', details)
+}
+
 // Output
 const icon = { PASS: '✅', WARN: '⚠️', FAIL: '❌' }
 console.log(`# L1 静态检查报告\n\n- 仓库：${root}\n- 提交：${git('rev-parse', '--short', 'HEAD').trim()}\n- 时间：${new Date().toISOString()}\n`)
