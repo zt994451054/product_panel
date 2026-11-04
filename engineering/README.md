@@ -9,7 +9,7 @@
 
 | 工程名 | 类型 | 仓库地址 | 主分支 | 分支策略 | 本地路径 | 职责边界 | 详细说明 |
 |-------|------|---------|--------|---------|---------|---------|---------|
-| <!-- 如：web-frontend --> | <!-- 前端 / 后端 / 全栈 / 移动端 / 微服务 --> | <!-- git@... 或「待创建」--> | main | 见 `standards/engineering/standards.md` | `engineering/workspace/<工程名>/` | <!-- 一句话说明本工程负责什么 --> | <!-- 该工程仓库 README 的 URL --> |
+| <!-- 如：web-frontend --> | <!-- 前端 / 后端 / 全栈 / 移动端 / 微服务 --> | <!-- git@... 或「待创建」--> | main | 见 `standards/version-control/git-workflow.md` | `engineering/workspace/<工程名>/` | <!-- 一句话说明本工程负责什么 --> | <!-- 该工程仓库 README 的 URL --> |
 
 > **一行清单 = 一个 git 仓库 = 一个 workspace 子目录**。
 > 工程名建议 kebab-case（如 `web-frontend` / `api-server` / `admin` / `mobile-ios`）。
@@ -83,4 +83,4 @@ git clone <仓库地址> engineering/workspace/<工程名>
 | [docs/api-docs/openapi.yaml](./docs/api-docs/openapi.yaml) | 已发布正式 API 文档 |
 
 > 技术架构基线见 `foundation/tech-arch/`。
-> 研发规范见 `standards/engineering/`（前端 / 后端专项规范文件按职责分类，与本清单不冲突）。
+> 研发规范见 [standards/README.md](../standards/README.md)。

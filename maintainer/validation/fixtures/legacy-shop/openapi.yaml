@@ -1,0 +1,7 @@
+openapi: 3.0.3
+info: { title: legacy-shop, version: 2.3.1 }
+paths:
+  /api/products:
+    get: { summary: 商品列表, responses: { '200': { description: ok } } }
+  /api/orders:
+    post: { summary: 创建订单, responses: { '201': { description: created } } }

@@ -10,6 +10,7 @@
 | [business/](./business/) | 商业模式、上市策略 |
 | [product-arch/](./product-arch/) | 产品架构（功能模块/用户旅程，持续更新） |
 | [tech-arch/](./tech-arch/) | 技术架构（系统架构/技术决策，持续更新） |
+| [planning/](./planning/README.md) | 产品规划与讨论（可选模块，在 `SETUP.md`「可选模块」启用后使用） |
 
 ## 更新原则
 

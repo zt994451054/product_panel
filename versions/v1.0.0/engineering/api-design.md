@@ -5,7 +5,7 @@
 > 需求文档见 [product/requirements.md](../product/requirements.md)
 > 技术方案见 [tech-solution.md](./tech-solution.md)
 >
-> **本文档遵循组织级 API 设计规范（product_spec skill - API 设计规范）**
+> **本文档遵循 [API 设计规范](../../../standards/architecture/api-design.md)**
 
 ---
 

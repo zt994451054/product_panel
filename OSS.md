@@ -1,8 +1,8 @@
 # OSS.md — 对象存储配置与使用规范
 
 > 本文件记录本项目的 OSS 配置信息和文件管理约定。
-> rclone 的安装、配置、命令操作由 rclone skill 处理。
-> 凭证（AK/SK）不在此文件中，存储在本机 rclone 配置里。
+> 上传流程见 [SOP-10](./agents/sop/SOP-10-file-upload.md)；rclone 安装见 https://rclone.org/install/。
+> 访问密钥（AK/SK）配置在本机 rclone 里才能上传；想记录在面板文档里也可以。
 
 ---
 
@@ -82,14 +82,14 @@ https://{CDN域名}/{product-slug}/{路径}/{文件名}
 
 ## 新主机配置引导
 
-> 本节供 AI 在检测到 rclone 未配置时使用。AK/SK 跟随主机，不存入面板。
+> 本节供 AI 在检测到 rclone 未配置时使用。
 
 当 `rclone listremotes` 未返回本项目 remote 名时，AI 告知用户：
 
 ```
 ⚠️ 当前主机尚未配置 OSS 访问凭证，无法上传文件。
 
-本项目使用 rclone 管理对象存储，凭证存储在本机（不入 git）。
+本项目使用 rclone 管理对象存储，每台主机都要配置一次访问密钥。
 请按以下步骤完成一次性配置：
 
 ① 确认 rclone 已安装
@@ -97,7 +97,7 @@ https://{CDN域名}/{product-slug}/{路径}/{文件名}
    （未安装：https://rclone.org/install/）
 
 ② 获取 AK/SK
-   向管理员索取本项目专用的 OSS 访问凭证（AK/SK）。
+   向管理员索取本项目专用的 OSS 访问凭证（AK/SK），或查看面板中是否已记录。
    - 云厂商和 Bucket 信息见本文件「配置信息」表
 
 ③ 配置 rclone remote（以阿里云 OSS 为例）
@@ -120,4 +120,4 @@ https://{CDN域名}/{product-slug}/{路径}/{文件名}
 配置完成后，重新执行上传操作。
 ```
 
-> AI 引导完成后，在 OSS.md 配置信息表确认 remote 名/bucket/CDN 域名已填写，不填写 AK/SK。
+> AI 引导完成后，在 OSS.md 配置信息表确认 remote 名/bucket/CDN 域名已填写。
