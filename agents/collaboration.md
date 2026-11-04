@@ -31,7 +31,7 @@
 4. **检查工具默认值**：新建流水线、任务、规则时，工具可能自动加上触发器、通知、权限等默认配置。写之前确认，写之后核对，没有要求的就去掉
 5. **被拦下不绕过**：遇到权限不足、安全拦截、审批要求，停下来告诉使用者，不换一种方式绕过去
 
-写入的内容和结果记在对应文档：版本相关的写进 `versions/{ver}/CHANGES.md`，运维相关的同步 `engineering/docs/ops-profile.md`。
+写入的内容和结果记在对应文档：版本相关的写进 `versions/{ver}/CHANGES.md`，运维相关的记在 `engineering/docs/ops-changes.md`（SOP-13）并同步 `engineering/docs/ops-profile.md`。
 
 ## 3. 无人值守连续推进
 

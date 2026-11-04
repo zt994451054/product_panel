@@ -14,7 +14,7 @@
 1. **先在非生产环境验证**：制品在至少一个非生产环境验证通过后才进生产，见 [CI/CD 流水线规范](ci-cd.md)
 2. **向后兼容**：新旧版本可能并存时，API 和数据格式必须兼容；Schema 变更用扩展-收缩方式，先扩展后使用，见 [回滚策略规范](rollback.md)
 3. **部署前有回滚方案**：写在 `versions/{ver}/engineering/release.md` 的「回滚方案」节
-4. **生产做业务链路验证**：部署后实际走一遍核心业务链路。健康检查通过只说明进程活着，不代表功能可用。面板的生产验收见 [SOP-12](../../agents/sop/SOP-12-production-acceptance.md)
+4. **生产做业务链路验证**：部署后实际走一遍核心业务链路。健康检查通过只说明进程活着，不代表功能可用。面板里写在 release.md「生产业务验证」，通过后再做生产验收（[SOP-12](../../agents/sop/SOP-12-production-acceptance.md)）
 5. **有发布记录**：步骤、结果和遗留事项记录在 `versions/{ver}/engineering/release.md`
 
 ---
