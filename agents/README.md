@@ -13,7 +13,6 @@
 | [communication.md](./communication.md) | 对使用者表达的完整写法和示例（核心 5 条已在 AGENTS.md §5.1） |
 | [collaboration.md](./collaboration.md) | 派子 agent、写外部系统、无人值守、交接、面板仓库的分支与提交 |
 | [rules-log.md](./rules-log.md) | 修改 AGENTS.md 或本目录后记一条；想知道某条规则为什么存在时查 |
-| [upgrade.md](./upgrade.md) | 合并上游模板的新版本时 |
 
 ## 收录规则
 
@@ -33,6 +32,6 @@
 
 ## 编号
 
-- 编号 00 到 49 属于上游模板，50 起留给下游项目自用
+- 新增 SOP 接着现有最大编号往下排；插在两个流程之间的用小数编号（如 SOP-09.5）
 - 文件名：`SOP-{编号}-{英文短名}.md`，标题写在文件第一行 `# SOP-{编号} {中文名}`
 - 编号不能重复。新增 SOP 后在 AGENTS.md §5 索引登记，并在 [rules-log.md](./rules-log.md) 记一条

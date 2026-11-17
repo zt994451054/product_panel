@@ -58,6 +58,8 @@ const sopFiles = tracked.filter((f) => /^agents\/sop\/SOP-\d{2}(?:\.\d+)?-[^/]+\
 {
   const entries = ['CLAUDE.md', '.cursorrules', '.windsurfrules']
   const details = entries.filter((f) => !existsSync(join(root, f)) || !read(f).includes('AGENTS.md')).map((f) => `${f} 未引用 AGENTS.md`)
+  // Claude Code only loads another file through the `@path` import syntax
+  if (existsSync(join(root, 'CLAUDE.md')) && !/^@AGENTS\.md\s*$/m.test(read('CLAUDE.md'))) details.push('CLAUDE.md 须用 `@AGENTS.md` 引用，其他写法不会被自动加载')
   report('C02', 'AI 入口文件都指向 AGENTS.md', details.length ? 'FAIL' : 'PASS', details)
 }
 
@@ -187,8 +189,7 @@ const sopFiles = tracked.filter((f) => /^agents\/sop\/SOP-\d{2}(?:\.\d+)?-[^/]+\
   const re = /product[_-]spec|公司级|组织级/
   const details = []
   for (const f of mdFiles) {
-    // The upgrade guide records the removal of the old dependency, so it is allowed to name it
-    if (f.startsWith('maintainer/') || f === 'agents/upgrade.md') continue
+    if (f.startsWith('maintainer/')) continue
     read(f).split('\n').forEach((line, i) => { if (re.test(line)) details.push(`${f}:${i + 1}`) })
   }
   report('C12', '不依赖外部规范 skill 或上级规范', details.length ? 'FAIL' : 'PASS', details)
