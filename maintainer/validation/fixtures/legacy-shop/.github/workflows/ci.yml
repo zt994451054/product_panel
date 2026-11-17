@@ -1,0 +1,30 @@
+name: ci
+on:
+  push:
+    branches: [develop]
+    tags: ['v*']
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci && npm run lint && npm test
+  deploy-staging:
+    if: github.ref == 'refs/heads/develop'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t registry.example.com/legacy-shop:${{ github.sha }} .
+      - run: docker push registry.example.com/legacy-shop:${{ github.sha }}
+      - run: ssh deploy@${{ secrets.STAGING_HOST }} "docker pull registry.example.com/legacy-shop:${{ github.sha }} && docker compose up -d"
+  deploy-prod:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t registry.example.com/legacy-shop:${{ github.ref_name }} .
+      - run: docker push registry.example.com/legacy-shop:${{ github.ref_name }}
+      - run: ssh deploy@${{ secrets.PROD_HOST }} "docker pull registry.example.com/legacy-shop:${{ github.ref_name }} && docker compose up -d"
