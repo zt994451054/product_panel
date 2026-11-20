@@ -75,7 +75,7 @@ export function cockpitData(c) {
   const r = online.running
   if (r?.how === 'rollback') {
     const from = versions.find((v) => v.id === r.from?.[0])
-    if (from && LIVE.includes(from.status)) add([from.owners.product], '线上已回滚', from.id, `生产已从 ${r.from.join('、')} 回滚到 ${r.version}`, `${r.since.slice(5, 10)}${r.note ? '，' + r.note : ''}${r.ref ? '（' + r.ref + '）' : ''}。${from.id} 还没有发布完成，要决定下一步`,
+    if (from && LIVE.includes(from.status)) add([from.owners.product], '线上已回滚', from.id, `生产已从 ${r.from.join('、')} 回滚${r.version ? '到 ' + r.version : '，线上现在没有版本'}`, `${r.since.slice(5, 10)}${r.note ? '，' + r.note : ''}${r.ref ? '（' + r.ref + '）' : ''}。${from.id} 还没有发布完成，要决定下一步`,
       `${from.id} 上线后${r.ref ? '因为 ' + r.ref + ' ' : ''}回滚了。帮我梳理现在有哪几种处理办法（退回开发修复、修好后重新部署、其他），各自的代价是什么，我来决定。`)
   }
   for (const v of live) {

@@ -33,6 +33,7 @@ const panelCmd = (...args) => {
 const V = ['--version', 'v1.0.0']
 const signoff = (stage, at, signer, quote) => {
   panelCmd('stage', 'check', ...V, '--stage', stage, '--check', '门控条件已逐条核对|ok|见本阶段文档|manual', '--by', 'ai', '--at', `${at}T15:00`)
+  panelCmd('stage', 'request', ...V, '--stage', stage, '--to', signer, '--summary', '本阶段摘要与门控核对结果', '--by', 'ai', '--at', `${at}T16:00`)
   panelCmd('stage', 'complete', ...V, '--stage', stage, '--signer', signer, '--quote', quote, '--by', 'ai', '--at', `${at}T17:00`)
 }
 const enter = (stage, at) => panelCmd('stage', 'enter', ...V, '--stage', stage, '--by', 'ai', '--at', `${at}T09:00`)

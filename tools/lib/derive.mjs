@@ -72,6 +72,9 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
       v = newVersion(e); versions.set(e.scope, v); v.log.push({ e }); continue
     }
     if (!v) { bad(`${e.scope} 还没有创建，这条没有生效`); continue }
+    // Every version event names the creation it was written against. After a version-number clash, the events of the
+    // losing side must not act on the winner's version.
+    if (e.create && e.create !== v.create.id) { bad(`这条记录属于另一个撞了号的 ${e.scope}（在 ${e.src?.branch ?? '另一处'} 上），没有生效。那个版本换号后要重新记录`); continue }
     const isStage = ['stage_enter', 'stage_complete', 'stage_rollback', 'gate_check', 'signoff_request', 'onboard'].includes(e.type)
     if (isStage && v.abandoned) { bad('版本已放弃，不能再推进阶段'); continue }
     if (isStage && paused(v)) { bad('版本挂起中，恢复后才能推进阶段'); continue }
@@ -175,12 +178,16 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
       progress: v.progress && (!v.progress.stage || v.progress.stage === v.open) ? { text: v.progress.text, at: v.progress.at } : null,
       rollbacks: v.rollbacks.map((r) => ({ at: r.at, from: r.from, to: r.to, reason: r.reason, ref: r.ref ?? null })),
       downstream: v.downstream.map((d) => ({ target: d.target, result: d.result, evidence: d.evidence, by: d.confirmed?.by ?? null })),
+      createId: v.create.id, deployedToProduction: project.deploys.some((d) => d.env === 'production' && d.action !== 'rollback' && d.versions.includes(v.id)),
       conflicts: v.conflicts.map((c) => ({ id: c.e.id, type: c.e.type, at: c.e.at, by: c.e.by, why: c.why, branch: c.e.src?.branch ?? null })),
       source: { branch: last.src?.branch ?? null, at: last.at, unpushed: effective.filter((x) => x.e.src?.state === 'unpushed').length, uncommitted: effective.filter((x) => x.e.src?.state === 'uncommitted').length },
       lastEventAt: effective.reduce((m, x) => later(m, x.e.at), v.create.at),
       events: v.log.map((x) => ({ ...x.e, voided: !!x.voided, conflict: x.conflict ?? null })),
     }
   })
+
+  // Changes another version decided to merge later (or only partly) stay visible on the version that still owes them.
+  for (const v of out) v.pendingMerges = out.flatMap((o) => o.downstream.filter((d) => d.target === v.id && ['deferred', 'partial'].includes(d.result)).map((d) => ({ from: o.id, result: d.result, evidence: d.evidence })))
 
   /* ---------- production ---------- */
   let running = null

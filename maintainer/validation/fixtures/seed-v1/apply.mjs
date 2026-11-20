@@ -49,6 +49,8 @@ const panel = (...args) => {
 panel('init', '--name', 'BookEasy', '--positioning', '让小型服务团队的客户在线自助预约时段', '--type', 'new', '--timezone', 'Asia/Shanghai', '--by', 'xiaolin', '--at', '2026-10-08T09:00')
 for (const [id, name, role, domain] of [['xiaolin', '小林', '产品经理', 'product'], ['xiaowang', '小王', '研发', 'engineering'], ['xiaozhou', '小周', '测试', 'testing']])
   panel('member', 'add', '--id', id, '--name', name, '--role', role, '--domains', domain, '--by', 'xiaolin', '--at', '2026-10-08T09:10')
+// The person driving this sandbox is the product owner, as their personal profile would say in a real clone.
+panel('whoami', '--set', 'xiaolin')
 const config = (item, status, by, day, extra) => panel('config', 'set', '--item', item, '--status', status, '--by', by, '--at', `2026-10-${day}T10:00`, ...extra)
 const confirmed = (item, by, day) => config(item, 'confirmed', by, day, ['--quote', '确认'])
 confirmed('product_info', 'xiaolin', '08')
@@ -66,6 +68,7 @@ confirmed('version_owners', 'xiaolin', '08')
 const done = (stage, from, to, signer, quote) => {
   panel('stage', 'enter', ...V, '--stage', stage, '--by', 'ai', '--at', `2026-10-${from}T11:00`)
   panel('stage', 'check', ...V, '--stage', stage, '--check', '门控条件已逐条核对|ok|见本阶段文档|manual', '--by', 'ai', '--at', `2026-10-${to}T15:00`)
+  panel('stage', 'request', ...V, '--stage', stage, '--to', signer, '--summary', '本阶段摘要与门控核对结果', '--by', 'ai', '--at', `2026-10-${to}T16:00`)
   panel('stage', 'complete', ...V, '--stage', stage, '--signer', signer, '--quote', quote, '--by', 'ai', '--at', `2026-10-${to}T17:00`)
 }
 done('requirements', '08', '13', 'xiaolin', '需求确认')

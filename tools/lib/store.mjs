@@ -124,7 +124,9 @@ export function recorder(root) {
 
 /** Create one event file. `fields` must not contain the common fields the script owns. */
 export function writeEvent(root, scope, { type, at, by, ...rest }, { now = new Date(), tz } = {}) {
-  const stamp = now.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z'
+  // The id starts with the real wall clock in milliseconds: events that share the same `at` then sort in the order
+  // they were written, which keeps "sign off, then enter the next stage" stable when both land in one second.
+  const stamp = new Date().toISOString().replace(/[-:.]/g, '').slice(0, 18) + 'Z'
   const id = `${stamp}-${[...randomBytes(4)].map((b) => (b % 36).toString(36)).join('')}`
   const event = { id, type, ...(scope === 'project' ? {} : { version: scope }), at, recorded_at: isoIn(tz, now), recorded_by: recorder(root), by, ...rest }
   const dir = eventDir(root, scope)
@@ -140,6 +142,25 @@ export function isoIn(tz, date = new Date()) {
   }).formatToParts(date).map((p) => [p.type, p.value]))
   const off = parts.timeZoneName.replace('GMT', '') || '+00:00'
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${off}`
+}
+
+/**
+ * The personal profile is a git-ignored file at the repository root. Its header says who operates this clone.
+ * A worktree does not share untracked files, so the main working tree is the fallback.
+ */
+export function profilePaths(root) {
+  const paths = [join(root, 'profile.md')]
+  const common = git(root, ['rev-parse', '--path-format=absolute', '--git-common-dir'])?.trim()
+  if (common && common.endsWith('.git')) { const main = join(common, '..', 'profile.md'); if (!paths.includes(main)) paths.push(main) }
+  return paths
+}
+export function readProfile(root) {
+  for (const file of profilePaths(root)) {
+    if (!existsSync(file)) continue
+    const member = readFileSync(file, 'utf8').split('\n').slice(0, 20).map((l) => l.match(/^member:\s*([a-z0-9_-]+)\s*$/)?.[1]).find(Boolean)
+    if (member) return { member, file }
+  }
+  return null
 }
 
 export function readDefs(root) {

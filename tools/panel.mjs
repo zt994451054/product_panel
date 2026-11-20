@@ -3,10 +3,10 @@
 // Usage: node tools/panel.mjs <command> [--flag value ...]    (run `node tools/panel.mjs help` for the list)
 // Zero dependencies: Node built-ins and the local git binary.
 
-import { writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { isAbsolute, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { git, isoIn, readAll, readDefs, writeEvent } from './lib/store.mjs'
+import { git, isoIn, profilePaths, readAll, readDefs, readProfile, writeEvent } from './lib/store.mjs'
 import { renderCockpit } from './lib/cockpit.mjs'
 import { CONFIG_STATUS, FIXED_HUMAN, FLOWS, MODES, STAGES, STAGE_NAME, dayIn, derive } from './lib/derive.mjs'
 
@@ -30,7 +30,10 @@ function parse(argv) {
 function load(root, env) {
   const all = readAll(root), defs = readDefs(root)
   const now = env.PANEL_NOW ? new Date(env.PANEL_NOW) : new Date()
-  return { root, all, defs, now, state: derive(all.events, defs, { now: now.toISOString() }) }
+  const state = derive(all.events, defs, { now: now.toISOString() }), profile = readProfile(root)
+  // The operator is whoever this clone's personal profile names, as long as that is an active member.
+  const me = profile && state.members.some((m) => m.id === profile.member && m.active) ? profile.member : null
+  return { root, all, defs, now, state, me, profile }
 }
 
 /* ---------- shared write path ---------- */
@@ -48,7 +51,8 @@ function versionOf(c, f) {
 
 /** Validate against the replay rules by trying the event out, then write it. */
 function commit(c, scope, fields, f, { byMember = false, freeBy = false } = {}) {
-  const by = need(f, 'by', '操作人：成员标识，AI 写 ai')
+  let by = need(f, 'by', '操作人：成员标识；AI 按流程自己记录的写 ai；当前操作者写 me')
+  if (by === 'me') by = c.me ?? fail('不知道当前操作者是哪位成员。先问使用者「你是哪位成员」，然后运行 whoami --set <成员标识> 记下来（只保存在本机，不入库）；使用者没回答就不执行这条命令')
   if (!freeBy) { if (byMember || !AGENTS.includes(by)) member(c, by, '操作人') }
   const tz = c.state.tz, nowIso = isoIn(tz, c.now)
   let at = nowIso
@@ -61,7 +65,8 @@ function commit(c, scope, fields, f, { byMember = false, freeBy = false } = {}) 
     const v = c.state.versions.find((x) => x.id === scope)
     if (v && Date.parse(at) < Date.parse(v.lastEventAt) && !f.backfill) fail(`发生时间早于 ${scope} 已有的最后一条记录（${v.lastEventAt}）。确实是补记历史的话，加 --backfill "补记原因"`)
   }
-  const event = { ...fields, at, by, ...(f.backfill ? { backfill: f.backfill } : {}) }
+  const owner = scope === 'project' ? null : c.state.versions.find((x) => x.id === scope)
+  const event = { ...fields, ...(owner && fields.type !== 'version_create' ? { create: owner.createId } : {}), at, by, ...(f.backfill ? { backfill: f.backfill } : {}) }
   const trial = { ...event, id: 'trial', scope, recorded_at: nowIso, recorded_by: '-', ...(scope === 'project' ? {} : { version: scope }), src: { branch: '本次写入', state: 'uncommitted' } }
   const events = [...c.all.events, trial].sort((a, b) => Date.parse(a.at) - Date.parse(b.at) || (a.id === 'trial' ? 1 : b.id === 'trial' ? -1 : 0))
   const after = derive(events, c.defs, { now: c.now.toISOString() })
@@ -78,9 +83,11 @@ const commands = {
     const tz = f.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
     try { dayIn(tz, c.now) } catch { fail(`时区「${tz}」不合法，例如 Asia/Shanghai`) }
     const project = 'prj_' + Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => (b % 36).toString(36)).join('')
-    return commit(c, 'project', { type: 'project_init', project, name: need(f, 'name', '产品名'), positioning: f.positioning ?? '待确认', product_type: oneOf(f.type, ['new', 'legacy'], '产品类型 --type'), timezone: tz }, f, { freeBy: true })
+    const note = f.timezone ? '' : `\n时区按本机设为 ${tz}，不对的话告诉使用者并用 --timezone 重新初始化前先作废这条。`
+    return commit(c, 'project', { type: 'project_init', project, name: need(f, 'name', '产品名'), positioning: f.positioning ?? '待确认', product_type: oneOf(f.type, ['new', 'legacy'], '产品类型 --type'), timezone: tz }, f, { freeBy: true }) + note
   },
   'member add'(c, f) {
+    if (!c.state.initialized) fail('项目还没有初始化，先运行 init')
     const domains = list(f.domains); domains.forEach((d) => oneOf(d, ['product', 'engineering', 'testing', 'ops'], '负责域'))
     return commit(c, 'project', { type: 'member_add', member: { id: /^[a-z0-9_-]+$/.test(need(f, 'id', '成员标识')) ? f.id : fail('成员标识只能用小写字母、数字、下划线、短横线'), name: need(f, 'name', '显示名'), role: need(f, 'role', '角色'), domains } }, f, { freeBy: c.state.members.length === 0 })
   },
@@ -109,7 +116,8 @@ const commands = {
     if (status === 'confirmed') need(f, 'quote', '使用者原话')
     if (['skipped', 'na'].includes(status)) need(f, 'note', '原因')
     const level = item.level[c.state.project?.type ?? 'new']
-    if (level === 'L0' && status === 'skipped') fail('L0 项不能暂不填')
+    if (level === 'L0' && status === 'skipped') fail('必须最先完成的配置项不能暂不填')
+    if (item.id === 'version_owners' && status === 'confirmed' && !c.state.versions.length) fail('还没有任何版本。先按 SOP-06 新建第一个版本并登记负责人（version new），再确认这一项')
     if (f.owner) member(c, f.owner, '归属人')
     return commit(c, 'project', { type: 'config_set', item: item.id, status, ...pick(f, ['quote', 'note', 'owner', 'due']) }, f, { byMember: status === 'confirmed' })
   },
@@ -119,11 +127,13 @@ const commands = {
     if (!c.state.initialized) fail('项目还没有初始化，先运行 init')
     if (c.state.config.find((x) => x.id === 'product_info')?.status !== 'confirmed') fail('「产品基本信息」还没有确认，确认后才能新建版本')
     const id = need(f, 'version', '版本号'); if (!/^v\d+\.\d+\.\d+$/.test(id)) fail('版本号格式应为 v1.2.3')
-    if (c.state.versions.some((v) => v.id === id)) fail(`版本号 ${id} 已经被占用（已检查所有分支）。换一个版本号`)
+    if (c.state.versions.some((v) => v.id === id)) fail(`版本号 ${id} 已经被占用（已检查本机能看到的所有分支）。换一个版本号`)
     const flow = oneOf(f.flow ?? 'standard', Object.keys(FLOWS), '流程 --flow')
     const owners = { product: member(c, need(f, 'product', '产品负责人'), '产品负责人'), engineering: member(c, need(f, 'engineering', '研发负责人'), '研发负责人'), testing: member(c, need(f, 'testing', '测试负责人'), '测试负责人'), ...(f.ops ? { ops: member(c, f.ops, '运维负责人') } : {}) }
     if (f.planned && !/^\d{4}-\d\d-\d\d$/.test(f.planned)) fail('计划发布日格式应为 2026-11-28')
-    return commit(c, id, { type: 'version_create', flow, kind: oneOf(f.kind ?? (flow === 'hotfix' ? 'patch' : 'minor'), ['major', 'minor', 'patch'], '版本大小 --kind'), goal: need(f, 'goal', '版本目标'), base: f.base ?? null, branch: f.branch ?? null, planned_release: f.planned ?? null, owners, ...(f.fixes ? { fixes: list(f.fixes) } : {}) }, f)
+    const kind = oneOf(f.kind ?? (flow === 'hotfix' ? 'patch' : 'minor'), ['major', 'minor', 'patch'], '版本大小 --kind')
+    if (flow === 'hotfix' && (kind !== 'patch' || !f.fixes)) fail('热修复流程只用于修已发布版本的生产缺陷：版本号必须是补丁号（--kind patch），并用 --fixes 写明修的生产缺陷编号。其他版本用常规流程')
+    return commit(c, id, { type: 'version_create', flow, kind, goal: f.goal ?? '待确认', base: f.base ?? null, branch: f.branch ?? null, planned_release: f.planned ?? null, owners, ...(f.fixes ? { fixes: list(f.fixes) } : {}) }, f)
   },
   'version update'(c, f) {
     const v = versionOf(c, f), set = pick(f, ['goal', 'branch', 'base'])
@@ -137,7 +147,11 @@ const commands = {
     const v = versionOf(c, f), to = need(f, 'to', '新的计划发布日'); if (!/^\d{4}-\d\d-\d\d$/.test(to)) fail('日期格式应为 2026-11-28')
     return commit(c, v.id, { type: 'replan', from: v.planned, to, reason: need(f, 'reason', '改期原因') }, f)
   },
-  'version onboard'(c, f) { const v = versionOf(c, f); return commit(c, v.id, { type: 'onboard', stage: oneOf(f.stage, FLOWS[v.flow], '阶段'), note: f.note ?? null, quote: need(f, 'quote', '使用者原话') }, f, { byMember: true }) },
+  'version onboard'(c, f) {
+    const v = versionOf(c, f)
+    if (c.state.project?.type !== 'legacy') fail('声明起点只用于存量产品接入：版本在纳入面板之前已经做到了某个阶段。新产品的版本要从第一个阶段开始')
+    return commit(c, v.id, { type: 'onboard', stage: oneOf(f.stage, FLOWS[v.flow], '阶段'), note: f.note ?? null, quote: need(f, 'quote', '使用者原话') }, f, { byMember: true })
+  },
   'version hold'(c, f) { const v = versionOf(c, f); return commit(c, v.id, { type: 'hold', reason: need(f, 'reason', '挂起原因'), resume_when: need(f, 'resume-when', '恢复条件'), quote: need(f, 'quote', '使用者原话') }, f, { byMember: true }) },
   'version resume'(c, f) { const v = versionOf(c, f); return commit(c, v.id, { type: 'resume', quote: need(f, 'quote', '使用者原话') }, f, { byMember: true }) },
   'version abandon'(c, f) { const v = versionOf(c, f); return commit(c, v.id, { type: 'abandon', reason: need(f, 'reason', '放弃原因'), quote: need(f, 'quote', '使用者原话') }, f, { byMember: true }) },
@@ -165,21 +179,20 @@ const commands = {
   'stage complete'(c, f) {
     const v = versionOf(c, f), stage = oneOf(f.stage, FLOWS[v.flow], '阶段')
     if (v.current?.stage !== stage) fail(`「${STAGE_NAME[stage]}」不在进行中${v.current ? `，当前是「${v.current.name}」` : ''}`)
-    const check = f.check ? v.events.find((e) => e.id === f.check && e.type === 'gate_check' && !e.voided && !e.conflict) : v.current.check
-    if (!check || check.stage && check.stage !== stage || Date.parse(check.at) < Date.parse(v.current.since)) fail('签收前要先做一次本阶段的门控核对（stage check），并且是这次进入阶段之后做的')
+    // Only the latest check since entering the stage counts; an older passing one cannot outvote a newer failing one.
+    const check = v.current.check
+    if (!check) fail('签收前要先做一次本阶段的门控核对（stage check），并且是这次进入阶段之后做的')
     if (check.result !== 'pass') fail('最近一次门控核对没有通过，不能签收')
-    const setting = c.state.settings.gates.find((g) => g.stage === stage).mode, mode = oneOf(f.mode ?? setting, MODES, '放行方式')
-    if (MODES.indexOf(mode) < MODES.indexOf(setting)) fail(`「${STAGE_NAME[stage]}」的签收设置是「${setting}」，不能用更宽松的「${mode}」`)
+    const mode = oneOf(f.mode ?? 'human', MODES, '放行方式')
+    if (mode !== 'human') fail('「评审后人工签收」和「评审团自动放行」要等评审记录落地后才能用，目前只能人工签收（--mode human，或不写 --mode）')
+    if (!v.waiting || Date.parse(v.waiting.since) < Date.parse(check.at)) fail('签收前要先把本阶段摘要和门控核对结果给签收人看，并记录请求签收（stage request，在最近一次门控核对之后）')
     const signoff = { mode }
-    if (mode === 'auto') Object.assign(signoff, { by: 'review-panel', summary: need(f, 'summary', '评审结论摘要'), review: need(f, 'review', '评审记录标识') })
-    else {
-      const signer = member(c, need(f, 'signer', '签收人'), '签收人')
-      if (!Object.values(v.owners).includes(signer)) fail(`签收人必须是 ${v.id} 登记的负责人之一`)
-      if (stage === 'release' && signer !== v.owners.product) fail('发布完成的交付确认只能由产品负责人签收')
-      Object.assign(signoff, { by: signer, quote: need(f, 'quote', '签收人的原话') })
-      if (mode === 'review_human') signoff.review = need(f, 'review', '评审记录标识')
-    }
+    const signer = member(c, need(f, 'signer', '签收人'), '签收人')
+    if (!Object.values(v.owners).includes(signer)) fail(`签收人必须是 ${v.id} 登记的负责人之一`)
+    if (stage === 'release' && signer !== v.owners.product) fail('发布完成的交付确认只能由产品负责人签收')
+    Object.assign(signoff, { by: signer, quote: need(f, 'quote', '签收人的原话') })
     if (stage === 'release') {
+      if (!v.deployedToProduction) fail('还没有本版本部署到生产的记录。部署后先用 deploy 记录（没走完门控就上线的用 --action exception），再签收发布')
       const others = c.state.versions.filter((x) => x.id !== v.id && ['planned', 'active', 'paused'].includes(x.status))
       const missing = others.filter((x) => !v.downstream.some((d) => d.target === x.id && d.by))
       if (missing.length) fail(`发布完成前，要逐个确认其他在途版本是否需要合入本版本的改动。还没确认的：${missing.map((x) => x.id).join('、')}（downstream-check）`)
@@ -191,11 +204,16 @@ const commands = {
   block(c, f) { const v = versionOf(c, f); return commit(c, v.id, { type: 'block', text: need(f, 'text', '被什么卡住'), owner: member(c, need(f, 'owner', '归谁处理'), '归属人'), ...pick(f, ['ref']) }, f) },
   unblock(c, f) { const v = versionOf(c, f); return commit(c, v.id, { type: 'unblock', target: need(f, 'target', '阻塞事件标识'), ...pick(f, ['note']) }, f) },
   deploy(c, f) {
-    const env = need(f, 'env', '环境，如 staging、production'), action = oneOf(f.action, ['deploy', 'rollback', 'exception', 'baseline'], '动作 --action')
+    const env = oneOf(f.env, ['dev', 'test', 'staging', 'production'], '环境 --env'), action = oneOf(f.action, ['deploy', 'rollback', 'exception', 'baseline'], '动作 --action')
     const versions = list(need(f, 'versions', '涉及的版本号'))
+    const unknown = action === 'baseline' ? [] : versions.filter((id) => !c.state.versions.some((v) => v.id === id))
+    if (unknown.length) fail(`版本 ${unknown.join('、')} 不存在。接入前就在线上跑的版本用 --action baseline 记录`)
     const e = { type: 'deploy', env, action, versions, ...pick(f, ['build', 'ref', 'note']) }
-    if (action === 'rollback') e.target = { version: need(f, 'target-version', '回滚到哪个版本'), build: f['target-build'] ?? null }
-    if (env === 'production') e.approved = { by: member(c, need(f, 'approved-by', '谁批准的'), '批准人'), quote: need(f, 'quote', '批准人的原话') }
+    // A first release has nothing to roll back to: the target may be empty, and production then runs no version.
+    if (action === 'rollback') e.target = { version: f['target-version'] ?? null, build: f['target-build'] ?? null }
+    // A baseline only states what was already running when the product was onboarded; nobody approved it here.
+    // An exception release is recorded after the fact, often without knowing who approved it: the approver is optional there.
+    if (env === 'production' && ['deploy', 'rollback'].includes(action) || f['approved-by']) e.approved = { by: member(c, need(f, 'approved-by', '谁批准的'), '批准人'), quote: need(f, 'quote', '批准人的原话') }
     return commit(c, 'project', e, f)
   },
   'downstream-check'(c, f) {
@@ -229,6 +247,17 @@ const commands = {
     const out = typeof f.out === 'string' ? (isAbsolute(f.out) ? f.out : join(c.root, f.out)) : join(c.root, 'cockpit.html')
     writeFileSync(out, renderCockpit(c))
     return `驾驶舱已生成：${out}\n用浏览器打开即可。它是生成当时的快照，状态变化后重新运行本命令。这个文件不入库。`
+  },
+  whoami(c, f) {
+    if (typeof f.set === 'string') {
+      const id = member(c, f.set, '成员')
+      const file = profilePaths(c.root)[0], old = existsSync(file) ? readFileSync(file, 'utf8') : ''
+      const text = /^member:.*$/m.test(old) ? old.replace(/^member:.*$/m, `member: ${id}`) : `member: ${id}\n\n# 个人档案\n\n这个文件只在本机，不入库。第一行说明这台电脑上操作面板的是哪位成员。\n${old ? '\n' + old : ''}`
+      writeFileSync(file, text)
+      return `已记下：当前操作者是 ${c.state.members.find((m) => m.id === id).name}（${id}）。保存在 ${file}，只在本机，不入库。`
+    }
+    if (c.me) return `当前操作者：${c.state.members.find((m) => m.id === c.me).name}（${c.me}），来自 ${c.profile.file}`
+    return c.profile ? `个人档案里写的成员「${c.profile.member}」不是在册成员。用 whoami --set <成员标识> 改正。在册成员：${c.state.members.map((m) => m.id).join('、') || '（还没有）'}` : `还不知道当前操作者是谁。问使用者「你是哪位成员」，然后运行 whoami --set <成员标识>。在册成员：${c.state.members.map((m) => m.id).join('、') || '（还没有）'}`
   },
   help() { return HELP },
 }
@@ -266,12 +295,17 @@ function statusText(c, only) {
   const lines = []
   if (c.all.problems.length) lines.push(`⚠ 有 ${c.all.problems.length} 个事件文件损坏，没有生效：`, ...c.all.problems.map((p) => `  - ${p.where}：${p.why}`))
   if (!s.initialized) { lines.push('【项目未初始化】还没有初始化记录。只能做初始化相关的工作。', '下一步：node tools/panel.mjs init --name <产品名> --type new|legacy --by <你的标识>'); return lines.join('\n') }
+  lines.push(c.me ? `当前操作者：${nm(c.me)}（${c.me}）` : '当前操作者：未识别。需要人做决定时先问「你是哪位成员」，再运行 whoami --set <成员标识>')
   lines.push(`【项目】${s.project.name}（${s.project.type === 'new' ? '新产品' : '存量产品'}）· ${s.project.positioning}`)
   const r = s.online.running
-  lines.push(`线上在跑：${r ? `${r.version}${r.build ? ' ' + r.build : ''}（${md(r.since)} ${r.how === 'rollback' ? '从 ' + r.from.join('、') + ' 回滚' : '部署'}）` : '还没有生产部署记录'} · 最后发布：${s.online.lastReleased ? `${s.online.lastReleased.version}（${md(s.online.lastReleased.at)}）` : '无'}`)
+  lines.push(`线上在跑：${r ? `${r.version ?? '没有版本'}${r.build ? ' ' + r.build : ''}（${md(r.since)} ${r.how === 'rollback' ? '从 ' + r.from.join('、') + ' 回滚' : r.how === 'baseline' ? '登记，接入面板前已在线上' : '部署'}）` : '还没有生产部署记录'} · 最后发布：${s.online.lastReleased ? `${s.online.lastReleased.version}（${md(s.online.lastReleased.at)}）` : '无'}`)
   const l0 = s.config.filter((x) => x.level === 'L0' && x.status !== 'confirmed'), l1 = s.config.filter((x) => x.level === 'L1' && !['confirmed', 'na'].includes(x.status)), l2 = s.config.filter((x) => x.level === 'L2' && ['todo', 'draft'].includes(x.status))
   const CS = { todo: '未填', skipped: '暂不填', draft: '草稿待审' }
-  lines.push(l0.length ? `配置：必须最先完成的还差 ${l0.map((x) => x.name).join('、')}。完成前不能推进任何阶段` : `配置：必须项已就绪${l1.length ? ` · 会卡阶段的待办 ${l1.length} 项：${l1.map((x) => `${x.name}（${CS[x.status]}${STAGE_NAME[x.before] ? '，进入' + STAGE_NAME[x.before] + '前' : ''}）`).join('、')}` : ''}${l2.length ? ` · 不阻断的 ${l2.length} 项未完成` : ''}`)
+  if (l0.length) {
+    const step = !s.members.length ? '登记成员（member add）' : l0.some((x) => x.id === 'product_info') ? '确认「产品基本信息」（config set --item product_info --status confirmed）' : !s.versions.length ? '新建第一个版本并登记负责人（version new）' : '确认「版本与负责人」（config set --item version_owners --status confirmed）'
+    lines.push(`下一步：${step}。顺序是：登记成员 → 确认产品基本信息 → 新建第一个版本 → 确认版本与负责人`)
+  }
+  lines.push(l0.length ? `配置：必须最先完成的还差 ${l0.map((x) => x.name).join('、')}。完成前不能推进任何阶段` : `配置：必须项已就绪${l1.length ? ` · 会卡阶段的待办 ${l1.length} 项：${l1.map((x) => `${x.name}（${CS[x.status]}${STAGE_NAME[x.before] ? '，进入' + STAGE_NAME[x.before] + '前' : x.before === 'first_upload' ? '，第一次上传文件前' : ''}）`).join('、')}` : ''}${l2.length ? ` · 不阻断的 ${l2.length} 项未完成：${l2.map((x) => x.name).join('、')}` : ''}`)
   const on = s.modules.filter((m) => m.status === 'on').map((m) => ({ i18n: '多语言', planning: '产品规划', smoke: '冒烟测试' }[m.id]))
   if (on.length) lines.push(`已启用的可选模块：${on.join('、')}`)
   if (s.projectConflicts.length) lines.push(`⚠ 项目级记录有 ${s.projectConflicts.length} 条矛盾：`, ...s.projectConflicts.map((x) => `  - ${x.why}`))
@@ -287,6 +321,7 @@ function statusText(c, only) {
     if (v.waiting) lines.push(`  等签收：已请 ${v.waiting.to.map(nm).join('、')} 签收，等了 ${v.waiting.days} 天`)
     for (const b of v.blocks) lines.push(`  阻塞 ${b.days} 天（归 ${nm(b.owner)}）：${b.text}`)
     if (s.online.deployedNotReleased.includes(v.id)) lines.push('  已部署到生产，发布完成还没签收')
+    for (const m of v.pendingMerges) lines.push(`  ⚠ 还欠一次合入：${m.from} 的改动${m.result === 'partial' ? '只合入了一部分' : '暂缓合入'}（${m.evidence}）`)
     if (v.progress) lines.push(`  最新进展（${md(v.progress.at)}）：${v.progress.text}`)
     for (const x of v.conflicts) lines.push(`  ⚠ 有一条记录没有生效：${x.why}`)
     lines.push(`  数据来自 ${v.source.branch}，最后更新 ${md(v.source.at)} ${hm(v.source.at)}${v.source.uncommitted ? `，${v.source.uncommitted} 条未提交` : ''}${v.source.unpushed ? `，${v.source.unpushed} 条未推送` : ''}`)
@@ -312,14 +347,18 @@ const HELP = `用法：node tools/panel.mjs <命令> [--参数 值 ...]
   member deactivate --id --reason --by
   settings set --key gate.<阶段>|stall_days.standard|stall_days.hotfix --value --quote --by
   config set --item --status todo|skipped|draft|confirmed|na [--quote --note --owner --due] --by
+      （confirmed 必须带 --quote 且 --by 是成员；skipped、na 必须带 --note；配置项标识见 state/defs/config-items.json）
+  whoami [--set 成员标识]            查看或记下这台电脑上的当前操作者（保存在不入库的 profile.md）
   module set --module i18n|planning|smoke --status on|off|declined --quote --by
-  deploy --env --action deploy|rollback|exception|baseline --versions a,b [--build --target-version --target-build --approved-by --quote --ref --note] --by
+  deploy --env dev|test|staging|production --action deploy|rollback|exception|baseline --versions a,b [--build --target-version --target-build --approved-by --quote --ref --note] --by
+      （生产环境的 deploy、rollback 必须带 --approved-by 和 --quote；exception 不知道谁批准的可以不带，baseline 不需要；回滚写 --target-version，首次上线回滚没有上一个版本时不写）
 
 版本（都要 --version）
-  version new --flow standard|hotfix --goal --product --engineering --testing [--ops --kind --base --branch --planned --fixes] --by
+  version new --flow standard|hotfix --product --engineering --testing [--goal --ops --kind --base --branch --planned --fixes] --by
+      （--goal 一句话的版本目标，使用者说不出时可以先不写，之后用 version update 补）
   version update [--goal --branch --base --product --engineering --testing --ops] --quote --by
   version replan --to 日期 --reason --by
-  version onboard --stage --quote [--note] --by
+  version onboard --stage --quote [--note] --by                （只用于存量产品接入）
   version hold --reason --resume-when --quote --by
   version resume --quote --by
   version abandon --reason --quote --by
@@ -328,7 +367,7 @@ const HELP = `用法：node tools/panel.mjs <命令> [--参数 值 ...]
   stage enter --by
   stage check --check "条件|ok 或 no|依据|script 或 manual"（可多条）--by
   stage request --to a,b --summary --by
-  stage complete --signer --quote [--mode --review --summary --check 事件标识] --by
+  stage complete --signer --quote --by                         （之前要有通过的 stage check 和之后的 stage request）
   stage rollback --from --to --reason --quote [--ref] --by      （不用 --stage）
 
 其他
@@ -338,7 +377,9 @@ const HELP = `用法：node tools/panel.mjs <命令> [--参数 值 ...]
   downstream-check --version --target --result merged|partial|not_needed|deferred --evidence --confirmed-by --quote --by
   event void --target 事件标识 --reason --by
 
-通用：--at 发生时间（默认现在）；补记早于已有记录的事件要加 --backfill "原因"；--root 指定仓库目录。
+通用：--by 操作人。AI 按流程自己记录的（进入阶段、门控核对、请求签收、记录签收、进展、阻塞）写 ai；
+      必须由人决定的（init、成员、设置、配置项确认、模块、挂起/恢复/放弃、声明起点）写做决定的成员标识，当前操作者可以写 me。
+      --at 发生时间（默认现在）；补记早于已有记录的事件要加 --backfill "原因"；--root 指定仓库目录。
 阶段键：${STAGES.map((s) => `${s} ${STAGE_NAME[s]}`).join('、')}`
 
 /** Programmatic entry (used by the tests). Returns { code, out }. */
