@@ -137,19 +137,19 @@ const sopFiles = tracked.filter((f) => /^agents\/sop\/SOP-\d{2}(?:\.\d+)?-[^/]+\
   report('C07', '.gitignore 没有失效规则', details.length ? 'WARN' : 'PASS', details)
 }
 
-// C08 stage order in SOP-07 matches the version stage table
+// C08 stage order in SOP-07 matches the standard flow of the state tool
 {
   const stageGate = sopFiles.find((f) => f.includes('/SOP-07-'))
-  const agents = stageGate ? read(stageGate) : ''
-  const order = (agents.match(/\*\*阶段顺序\*\*[：:]\s*(.+)/)?.[1] ?? '').split('→').map((s) => s.trim()).filter(Boolean)
-  const verReadme = 'versions/v1.0.0/README.md'
-  const section = existsSync(join(root, verReadme)) ? (read(verReadme).split('## 阶段进度')[1] ?? '').split(/\n#|\n\s*\n(?!\|)/)[0] : ''
-  const table = [...section.matchAll(/^\|\s*([^|\-][^|]*?)\s*\|/gm)].map((m) => m[1].trim()).filter((s) => s !== '阶段')
+  const order = ((stageGate ? read(stageGate) : '').match(/\*\*阶段顺序\*\*[：:]\s*(.+)/)?.[1] ?? '').split('→').map((s) => s.trim()).filter(Boolean)
   const inner = order.filter((s) => !['规划中', '已发布'].includes(s))
+  const derive = existsSync(join(root, 'tools/lib/derive.mjs')) ? read('tools/lib/derive.mjs') : ''
+  const keys = [...(derive.match(/standard: \[([^\]]+)\]/)?.[1] ?? '').matchAll(/'([a-z_]+)'/g)].map((m) => m[1])
+  const names = Object.fromEntries([...(derive.match(/STAGE_NAME = \{([^}]+)\}/)?.[1] ?? '').matchAll(/([a-z_]+): '([^']+)'/g)].map((m) => [m[1], m[2]]))
+  const tool = keys.map((k) => names[k])
   const details = []
   if (!order.length) details.push('SOP-07 未找到「阶段顺序」')
-  if (inner.join('|') !== table.join('|')) details.push(`阶段顺序（去掉规划中/已发布）：${inner.join(' → ')}`, `版本阶段表：${table.join(' → ')}`)
-  report('C08', '阶段顺序与版本阶段表一致', details.length ? 'FAIL' : 'PASS', details)
+  if (inner.join('|') !== tool.join('|')) details.push(`SOP-07 阶段顺序（去掉规划中/已发布）：${inner.join(' → ')}`, `状态工具的阶段：${tool.join(' → ')}`)
+  report('C08', '阶段顺序与状态工具一致', details.length ? 'FAIL' : 'PASS', details)
 }
 
 // C09 test pass rules do not conflict with the test baseline (all cases pass; only the user may waive)
@@ -199,9 +199,11 @@ const sopFiles = tracked.filter((f) => /^agents\/sop\/SOP-\d{2}(?:\.\d+)?-[^/]+\
 {
   const setup = read('SETUP.md')
   const section = setup.split('## 配置卡片')[1] ?? ''
-  const rows = [...(setup.split('## 配置状态表')[1] ?? '').matchAll(/^\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|/gm)].map((m) => [m[1], m[2]])
+  const rows = [...(setup.split('## 配置清单')[1] ?? '').split('### 可选模块')[0].matchAll(/^\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|/gm)].map((m) => [m[1], m[2]])
   const details = []
-  if (!rows.length) details.push('SETUP.md 没有配置状态表')
+  if (!rows.length) details.push('SETUP.md 没有配置清单表')
+  const defs = existsSync(join(root, 'state/defs/config-items.json')) ? JSON.parse(read('state/defs/config-items.json')).items : []
+  if (defs.map((d) => `${d.no}|${d.name}`).join(',') !== rows.map(([n, name]) => `${n}|${name}`).join(',')) details.push('SETUP.md 配置清单与 state/defs/config-items.json 的序号或名称不一致')
   for (const [n, name] of rows) {
     const card = section.split(new RegExp(`^### ${n}\\. ${name}$`, 'm'))[1]
     if (card === undefined) { details.push(`第 ${n} 项「${name}」没有配置卡片`); continue }
@@ -211,7 +213,7 @@ const sopFiles = tracked.filter((f) => /^agents\/sop\/SOP-\d{2}(?:\.\d+)?-[^/]+\
       if (!/[{]/.test(m[1]) && !existsSync(join(root, m[1]))) details.push(`第 ${n} 项目标文件不存在：${m[1]}`)
     }
   }
-  report('C13', '配置状态表与卡片、目标文件一致', details.length ? 'FAIL' : 'PASS', details)
+  report('C13', '配置清单与卡片、定义文件、目标文件一致', details.length ? 'FAIL' : 'PASS', details)
 }
 
 // C14 SOP numbers are unique, file names match their headings, and the AGENTS.md index matches the files
@@ -257,16 +259,14 @@ const sopFiles = tracked.filter((f) => /^agents\/sop\/SOP-\d{2}(?:\.\d+)?-[^/]+\
 // C18 every optional module in SETUP.md points to an existing module file with the required sections
 {
   const section = read('SETUP.md').split('### 可选模块')[1]?.split(/^#{2,3} /m)[0] ?? ''
-  const rows = [...section.matchAll(/^\|\s*([^|]+?)\s*\|[^|]*\|\s*\[[^\]]*\]\(\.\/([^)]+)\)\s*\|\s*([^|]*?)\s*\|\s*([^|]*?)\s*\|/gm)]
+  const rows = [...section.matchAll(/^\|\s*([^|]+?)\s*\|[^|]*\|\s*\[[^\]]*\]\(\.\/([^)]+)\)\s*\|\s*$/gm)]
   const details = []
   if (!rows.length) details.push('SETUP.md 没有「可选模块」表')
-  for (const [, name, file, status, record] of rows) {
+  for (const [, name, file] of rows) {
     if (!existsSync(join(root, file))) { details.push(`${name}：模块文件不存在 ${file}`); continue }
     const text = read(file)
     if (!text.includes('🧩 **可选模块**')) details.push(`${file} 顶部没有可选模块标识`)
     for (const h of ['## 启用时要做', '启用后的附加要求']) if (!text.includes(h)) details.push(`${file} 缺少「${h}」`)
-    if (!['未启用', '已启用'].includes(status)) details.push(`${name}：状态「${status}」不是「未启用」或「已启用」`)
-    if (status === '已启用' && !record) details.push(`${name}：已启用但「记录」列为空`)
   }
   report('C18', '可选模块登记与模块文件一致', details.length ? 'FAIL' : 'PASS', details)
 }

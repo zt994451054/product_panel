@@ -171,7 +171,8 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
       hold: paused(v) ? { since: v.holds.at(-1).from, days: dayDiff(v.holds.at(-1).from, now), reason: v.holds.at(-1).e.reason, resumeWhen: v.holds.at(-1).e.resume_when, quote: v.holds.at(-1).e.quote } : null,
       holds: v.holds.map((h) => ({ from: h.from, to: h.to ?? now })),
       abandoned: v.abandoned && { at: v.abandoned.at, reason: v.abandoned.reason },
-      progress: v.progress && { text: v.progress.text, at: v.progress.at },
+      // A progress note belongs to the stage it was written in; once the version moves on it is no longer current.
+      progress: v.progress && (!v.progress.stage || v.progress.stage === v.open) ? { text: v.progress.text, at: v.progress.at } : null,
       rollbacks: v.rollbacks.map((r) => ({ at: r.at, from: r.from, to: r.to, reason: r.reason, ref: r.ref ?? null })),
       downstream: v.downstream.map((d) => ({ target: d.target, result: d.result, evidence: d.evidence, by: d.confirmed?.by ?? null })),
       conflicts: v.conflicts.map((c) => ({ id: c.e.id, type: c.e.type, at: c.e.at, by: c.e.by, why: c.why, branch: c.e.src?.branch ?? null })),

@@ -265,6 +265,8 @@ function statusText(c, only) {
   const l0 = s.config.filter((x) => x.level === 'L0' && x.status !== 'confirmed'), l1 = s.config.filter((x) => x.level === 'L1' && !['confirmed', 'na'].includes(x.status)), l2 = s.config.filter((x) => x.level === 'L2' && ['todo', 'draft'].includes(x.status))
   const CS = { todo: '未填', skipped: '暂不填', draft: '草稿待审' }
   lines.push(l0.length ? `配置：必须最先完成的还差 ${l0.map((x) => x.name).join('、')}。完成前不能推进任何阶段` : `配置：必须项已就绪${l1.length ? ` · 会卡阶段的待办 ${l1.length} 项：${l1.map((x) => `${x.name}（${CS[x.status]}${STAGE_NAME[x.before] ? '，进入' + STAGE_NAME[x.before] + '前' : ''}）`).join('、')}` : ''}${l2.length ? ` · 不阻断的 ${l2.length} 项未完成` : ''}`)
+  const on = s.modules.filter((m) => m.status === 'on').map((m) => ({ i18n: '多语言', planning: '产品规划', smoke: '冒烟测试' }[m.id]))
+  if (on.length) lines.push(`已启用的可选模块：${on.join('、')}`)
   if (s.projectConflicts.length) lines.push(`⚠ 项目级记录有 ${s.projectConflicts.length} 条矛盾：`, ...s.projectConflicts.map((x) => `  - ${x.why}`))
   const live = s.versions.filter((v) => ['planned', 'active', 'paused'].includes(v.status) && (!only || v.id === only)).sort((a, b) => (a.planned ?? '9') < (b.planned ?? '9') ? -1 : 1)
   lines.push('', `【未发布的版本 ${live.length} 个】${live.length > 1 ? '没有默认版本，操作时要指明版本号' : ''}`)

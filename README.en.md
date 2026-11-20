@@ -73,7 +73,7 @@ This is a scaffold. Once initialized it is your repository, and you are free to 
 
 The AI's entry point is [AGENTS.md](./AGENTS.md). Each new conversation follows a fixed order:
 
-1. **Init check**: read the configuration status table and finish the required items first
+1. **Init check**: run the status command and finish the required items first
 2. **Status check**: read the current version, stage and recent changes, then summarize. A stage stalled for more than 14 days is flagged
 3. **Match SOP**: find the standard operating procedure for the task
 4. **Read standards**: read the relevant files in `standards/` before producing anything
@@ -112,11 +112,13 @@ The full index is in [AGENTS.md](./AGENTS.md) §5 and the procedures are in [age
 | Path | Purpose |
 |------|---------|
 | `AGENTS.md` | The AI's entry point, read in every conversation |
-| `SETUP.md` | Configuration checklist: status table plus instructions per item |
+| `SETUP.md` | Configuration checklist: the items plus instructions per item |
 | `agents/` | Procedures (SOPs), collaboration and communication rules |
+| `state/` | Project state: append-only event records, read and written by the tool. Do not edit by hand |
+| `tools/` | State tool: `node tools/panel.mjs status` shows progress; the AI uses it to record stages and sign-offs |
 | `standards/` | 59 default standards in 10 domains, usable as-is or editable. See [standards/README.md](./standards/README.md) |
 | `foundation/` | Long-lived baselines across versions: market, business model, product architecture, technical architecture, unified prototype |
-| `versions/` | Per-version requirements, design, solution, testing and release documents. The current version is in `versions/CURRENT.md` |
+| `versions/` | Per-version requirements, design, solution, testing and release documents. Run `node tools/panel.mjs status` to see where each version stands |
 | `engineering/` | Index of engineering repositories and environment docs. Code is cloned into `workspace/` and never committed here |
 | `testing/` | Index of test projects and the test strategy |
 | `materials/` | Source material you give the AI (files stay out of git, only a list is kept) |
@@ -972,7 +974,7 @@ In its own repositories. Register them in `engineering/README.md` and the AI clo
 Any tool that reads `AGENTS.md`. The process has been exercised end to end only on Claude Code. For other tools, only the entry files pointing to `AGENTS.md` have been checked.
 
 **Can several people each use their own AI?**
-Yes, with a caveat: the panel is designed around one person driving one AI, so several people editing the state files (current version, progress matrix) at once tend to conflict. Branch and commit discipline is in `agents/collaboration.md`, and state changes are best merged to the main branch in small commits.
+Yes, with a caveat: each person can drive their own version on their own branch. State is a set of append-only records, and reading it merges the records from every branch, so nobody overwrites anybody else. Commit and push records promptly so others can see them. Branch and commit discipline is in `agents/collaboration.md`.
 
 ## License
 

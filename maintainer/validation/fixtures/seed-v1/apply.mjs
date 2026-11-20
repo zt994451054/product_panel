@@ -2,6 +2,7 @@
 // Seeds a pristine panel copy into "BookEasy v1.0.0, tech solution finished" state.
 // Usage: node apply.mjs <sandboxPanelDir>
 
+import { execFileSync } from 'node:child_process'
 import { cpSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -22,38 +23,13 @@ const patch = (file, pairs) => {
 
 // Product name and filled baseline documents. Replace only the title and §1 field, not the rule text.
 patch('AGENTS.md', [['# {产品名} — AI 操作规约', '# BookEasy — AI 操作规约'], ['**产品名称**：{产品名}', '**产品名称**：BookEasy']])
-patch('README.md', [['{产品名称}', 'BookEasy']])
+// README.md is the template introduction and carries no product-name placeholder, so it is left as is.
 patch('OSS.md', [['<!-- 如：https://assets.example.com -->', '不使用（本产品无文件上传需求）']])
 patch('foundation/market/market-research.md', [
   ['| 全球市场规模 | <!-- 如：$XXB --> | <!-- 报告/机构名称 --> | <!-- 年份 --> |', '| 全球市场规模 | 约 $500M（在线预约 SaaS，中小团队段） | 内部估算 | 2026 |'],
 ])
 patch('standards/design/DESIGN.md', [['Primary:       #______', 'Primary:       #2563EB']])
-patch('versions/CURRENT.md', [
-  ['**阶段**: 规划中', '**阶段**: 技术方案'],
-  ['**进入时间**: <!-- YYYY-MM-DD -->', '**进入时间**: 2026-10-20'],
-  ['- 产品: <!-- @姓名 -->', '- 产品: @小林'],
-  ['- 研发: <!-- @姓名 -->', '- 研发: @小王'],
-  ['- 测试: <!-- @姓名 -->', '- 测试: @小周'],
-])
-patch('versions/README.md', [
-  [
-    ['| [v1.0.0](./v1.0.0/README.md) | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ | 规划中 | - |', '| [v1.0.0](./v1.0.0/README.md) | ✅ | ✅ | 🔄 | ⏳ | ⏳ | ⏳ | ⏳ | 技术方案 | - |'],
-    ['| [v1.0.0](./v1.0.0/README.md) | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ | ⏳ | 规划中 | - |', '| [v1.0.0](./v1.0.0/README.md) | ✅ | ✅ | 🔄 | ⏳ | ⏳ | ⏳ | 技术方案 | - |'],
-  ],
-])
 patch('versions/v1.0.0/README.md', [
-  [
-    ['| 需求分析 | ⏳ 待开始 | - | - | | |', '| 需求分析 | ✅ 完成 | 2026-10-08 | 2026-10-13 | 两个 P0 模块已确认 | @小林 2026-10-13：需求确认 |'],
-    ['| 需求分析 | ⏳ 待开始 | - | - | |', '| 需求分析 | ✅ 完成 | 2026-10-08 | 2026-10-13 | 两个 P0 模块已确认 |'],
-  ],
-  [
-    ['| 产品设计 | ⏳ 待开始 | - | - | | |', '| 产品设计 | ✅ 完成 | 2026-10-14 | 2026-10-19 | 原型已更新 | @小林 2026-10-19：设计确认 |'],
-    ['| 产品设计 | ⏳ 待开始 | - | - | |', '| 产品设计 | ✅ 完成 | 2026-10-14 | 2026-10-19 | 原型已更新 |'],
-  ],
-  [
-    ['| 技术方案 | ⏳ 待开始 | - | - | | |', '| 技术方案 | 🔄 进行中 | 2026-10-20 | - | 方案、接口、数据库设计已写完 | |'],
-    ['| 技术方案 | ⏳ 待开始 | - | - | |', '| 技术方案 | 🔄 进行中 | 2026-10-20 | - | 方案、接口、数据库设计已写完 |'],
-  ],
   ['| 增量 DDL | <!-- 表结构变更说明，无则填「无」 --> | ⏳ |', '| 增量 DDL | 新增 slot、booking 两张表 | ⏳ |'],
   ['| 数据迁移脚本 | <!-- SQL 数据脚本说明，无则填「无」 --> | ⏳ |', '| 数据迁移脚本 | 无 | — |'],
   ['| 配置变更 | <!-- 环境变量/配置文件修改项，无则填「无」 --> | ⏳ |', '| 配置变更 | 新增 BOOKING_MAX_ACTIVE=3 | ⏳ |'],
@@ -65,30 +41,37 @@ patch('engineering/README.md', [[
   "| booking-web | 前端 | git@git.example.com:bookeasy/booking-web.git | main | 见 `standards/version-control/git-workflow.md` | `engineering/workspace/booking-web/` | 预约 Web 端与管理后台 | 仓库 README |\n| booking-api | 后端 | git@git.example.com:bookeasy/booking-api.git | main | 见 `standards/version-control/git-workflow.md` | `engineering/workspace/booking-api/` | 时段与预约接口 | 仓库 README |",
 ]])
 
-// §0 reads this table. Row order and names follow SETUP.md.
-const row = (n, name, levels, status, note) => {
-  const text = readFileSync(join(dir, 'SETUP.md'), 'utf8')
-  const from = `| ${n} | ${name} | ${levels} | ⬜ 未填 | |`
-  if (!text.includes(from)) throw new Error(`SETUP.md: row not found: ${from}`)
-  writeFileSync(join(dir, 'SETUP.md'), text.replace(from, `| ${n} | ${name} | ${levels} | ${status} | ${note} |`))
+// State is recorded through the panel tool, never written into documents.
+const panel = (...args) => {
+  try { return execFileSync('node', [join(dir, 'tools', 'panel.mjs'), '--root', dir, ...args], { encoding: 'utf8' }) }
+  catch (e) { throw new Error(`panel ${args.slice(0, 2).join(' ')} failed: ${e.stdout}`) }
 }
-patch('SETUP.md', [['**产品类型**：未选择 <!-- 新产品 / 存量产品。由 AI 与使用者确认后填写 -->', '**产品类型**：新产品']])
-const confirmed = '✅ 已确认'
-row(1, '产品基本信息', 'L0 | L0', confirmed, '@小林 2026-10-08')
-row(2, '版本与负责人', 'L0 | L0', confirmed, '@小林 2026-10-08')
-row(3, '产品架构与功能清单', 'L2 | L1 需求分析', '⏭ 暂不填', '@小林 2026-10-08')
-row(4, '设计系统', 'L1 产品设计 | L1 产品设计', confirmed, '@小林 2026-10-14')
-row(5, '工程清单', 'L1 技术方案 | L1 技术方案', confirmed, '@小王 2026-10-20')
-row(6, '技术架构', 'L1 技术方案 | L1 技术方案', confirmed, '@小王 2026-10-20')
-row(7, '全量表结构', '不适用 | L1 技术方案', '➖ 不适用', '新产品没有存量')
-row(8, '全量 API 清单', '不适用 | L1 技术方案', '➖ 不适用', '新产品没有存量')
-row(9, '本地开发环境', 'L1 开发中 | L1 开发中', confirmed, '@小王 2026-10-20')
-row(10, '环境配置', 'L1 测试 | L1 技术方案', confirmed, '@小王 2026-10-20')
-row(11, '运维与发布画像', 'L1 测试 | L1 技术方案', confirmed, '@小王 2026-10-20')
-row(12, '对象存储', 'L1 首次上传文件 | L1 首次上传文件', '➖ 不适用', '无文件上传需求')
-row(13, '规范确认', 'L2 | L2', confirmed, '沿用默认，@小林 2026-10-08')
-row(14, '市场调研', 'L2 | L2', confirmed, '@小林 2026-10-08')
-for (const [n, name] of [[15, '竞品分析'], [16, '用户研究'], [17, '商业模式'], [18, '上市策略'], [19, '测试工程引用']]) row(n, name, 'L2 | L2', '⏭ 暂不填', '@小林 2026-10-08')
+panel('init', '--name', 'BookEasy', '--positioning', '让小型服务团队的客户在线自助预约时段', '--type', 'new', '--timezone', 'Asia/Shanghai', '--by', 'xiaolin', '--at', '2026-10-08T09:00')
+for (const [id, name, role, domain] of [['xiaolin', '小林', '产品经理', 'product'], ['xiaowang', '小王', '研发', 'engineering'], ['xiaozhou', '小周', '测试', 'testing']])
+  panel('member', 'add', '--id', id, '--name', name, '--role', role, '--domains', domain, '--by', 'xiaolin', '--at', '2026-10-08T09:10')
+const config = (item, status, by, day, extra) => panel('config', 'set', '--item', item, '--status', status, '--by', by, '--at', `2026-10-${day}T10:00`, ...extra)
+const confirmed = (item, by, day) => config(item, 'confirmed', by, day, ['--quote', '确认'])
+confirmed('product_info', 'xiaolin', '08')
+confirmed('design_system', 'xiaolin', '14')
+for (const item of ['repos', 'tech_arch', 'local_dev', 'environments', 'ops_profile']) confirmed(item, 'xiaowang', '20')
+config('object_storage', 'na', 'xiaolin', '08', ['--note', '无文件上传需求'])
+confirmed('standards', 'xiaolin', '08')
+confirmed('market_research', 'xiaolin', '08')
+for (const item of ['product_arch', 'competitor_analysis', 'user_research', 'business_model', 'go_to_market', 'test_projects']) config(item, 'skipped', 'xiaolin', '08', ['--note', '以后再填'])
+
+// v1.0.0: requirements and design signed off, tech solution in progress.
+const V = ['--version', 'v1.0.0']
+panel('version', 'new', ...V, '--goal', '客户在线预约时段，管理员管理时段', '--kind', 'major', '--product', 'xiaolin', '--engineering', 'xiaowang', '--testing', 'xiaozhou', '--by', 'xiaolin', '--at', '2026-10-08T09:30')
+confirmed('version_owners', 'xiaolin', '08')
+const done = (stage, from, to, signer, quote) => {
+  panel('stage', 'enter', ...V, '--stage', stage, '--by', 'ai', '--at', `2026-10-${from}T11:00`)
+  panel('stage', 'check', ...V, '--stage', stage, '--check', '门控条件已逐条核对|ok|见本阶段文档|manual', '--by', 'ai', '--at', `2026-10-${to}T15:00`)
+  panel('stage', 'complete', ...V, '--stage', stage, '--signer', signer, '--quote', quote, '--by', 'ai', '--at', `2026-10-${to}T17:00`)
+}
+done('requirements', '08', '13', 'xiaolin', '需求确认')
+done('design', '14', '19', 'xiaolin', '设计确认')
+panel('stage', 'enter', ...V, '--stage', 'tech', '--by', 'ai', '--at', '2026-10-20T09:00')
+panel('note', ...V, '--text', '方案、接口、数据库设计已写完', '--by', 'ai', '--at', '2026-10-20T18:00')
 
 // Filled version documents (requirements, design, tech solution, API, DB, release) and ops profile
 cpSync(join(import.meta.dirname, 'files'), dir, { recursive: true })

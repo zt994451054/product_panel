@@ -10,6 +10,7 @@
 |------|-----------|
 | [sop/](./sop/) | 按 AGENTS.md §5 索引找到对应 SOP 后读 |
 | [baselines.md](./baselines.md) | 写技术方案或需求、发布时合并基线、热修复：版本内文档与基线文档的优先级 |
+| [state.md](./state.md) | 推进阶段、签收、改负责人、确认配置项、改设置、记部署之前：状态怎么存、怎么读、怎么改 |
 | [communication.md](./communication.md) | 对使用者表达的完整写法和示例（核心 5 条已在 AGENTS.md §5.1） |
 | [collaboration.md](./collaboration.md) | 派子 agent、写外部系统、无人值守、交接、面板仓库的分支与提交 |
 | [rules-log.md](./rules-log.md) | 修改 AGENTS.md 或本目录后记一条；想知道某条规则为什么存在时查 |
@@ -24,7 +25,8 @@
 |------|--------|
 | 产品知识和版本文档 | `foundation/`、`versions/` |
 | 产品怎么做的规范（编码、测试、安全……） | `standards/` |
-| 配置状态和配置引导 | `SETUP.md` |
+| 配置引导 | `SETUP.md` |
+| 状态数据和读写它的工具 | `state/`、`tools/` |
 | 研发、测试工程的环境和画像 | `engineering/`、`testing/` |
 | 模板自身的验证工具 | `maintainer/` |
 
