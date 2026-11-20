@@ -325,7 +325,7 @@ function renderHome() {
   const done = DATA.versions.filter((v) => v.status === 'released').map((v) => `<button class="ghost" data-ver="${v.id}">${v.id} · ${FLOW[v.flow]} · ${md(v.releasedAt)} 发布</button>`).join('')
   $('#home').innerHTML = `${banner}
     <div class="tiles">
-      ${tile('var(--blue)', '▲', r ? (r.version ?? '已回滚') : '暂无', '线上在跑', r ? esc(r.build) + ' · ' + (r.how === 'rollback' ? md(r.since) + ' 从 ' + r.from.join('、') + ' 回滚' : r.how === 'baseline' ? '接入前已在线上' : md(r.since) + ' 部署') + (o.lastReleased ? ' · 最后发布 ' + o.lastReleased.version : '') : '还没有生产部署记录', 'ver')}
+      ${tile('var(--blue)', '▲', r ? (r.version ?? '已回滚') : '暂无', '线上在跑', r ? esc(r.build) + ' · ' + (r.how === 'rollback' ? md(r.since) + ' 从 ' + r.from.join('、') + ' 回滚' : r.how === 'baseline' ? '接入前已在线上' : r.how === 'exception' ? md(r.since) + ' 例外上线，待补齐' : md(r.since) + ' 部署') + (o.lastReleased ? ' · 最后发布 ' + o.lastReleased.version : '') : '还没有生产部署记录', 'ver')}
       ${tile('var(--green)', act.length, act.length, '个版本在研', (paused.length ? '另有 ' + paused.length + ' 个挂起 · ' : '') + act.map((v) => v.id).join('、'))}
       ${tile('var(--coral)', '!', inbox.length, state.mine ? '件事等我处理' : '件事需要处理', Object.entries(kinds).map(([k, n]) => k + ' ' + n).join(' · ') || '没有待处理的事')}
       ${tile('var(--amber)', '◷', next ? (left >= 0 ? left + '<small> 天</small>' : '逾期') : '未定', next ? '距 ' + next.id + ' 计划发布' : '没有计划发布日', next ? '计划 ' + md(next.planned) + (next.replans.length ? ' · 改期 ' + next.replans.length + ' 次，累计延 ' + next.slipDays + ' 天' : ' · 没有改过期') : '')}

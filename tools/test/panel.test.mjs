@@ -335,6 +335,10 @@ test('rolling back a first release leaves production without a version', () => {
   dep('2026-10-05T21:00', '--action', 'deploy', '--build', 'b1')
   dep('2026-10-06T08:00', '--action', 'rollback', '--ref', 'BUG-005')
   assert.equal(r.state().online.running.version, null)
-  assert.match(r.ok('status'), /线上在跑：没有版本（10-06 从 v1\.0\.0 回滚）/)
+  // A release recorded after the fact needs no approver and is shown for what it is.
+  r.ok('deploy', '--env', 'production', '--action', 'exception', '--versions', 'v1.0.0', '--by', 'ai', '--at', '2026-10-07T08:00')
+  assert.match(r.ok('status'), /线上在跑：v1\.0\.0（10-07 例外上线，没走完门控，待补齐）/)
+  r.ok('deploy', '--env', 'production', '--action', 'rollback', '--versions', 'v1.0.0', '--approved-by', 'xiaolin', '--quote', '好', '--by', 'azhe', '--at', '2026-10-08T08:00')
+  assert.match(r.ok('status'), /线上在跑：没有版本（10-08 从 v1\.0\.0 回滚）/)
   r.ok('render')
 })

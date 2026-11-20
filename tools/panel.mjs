@@ -298,7 +298,7 @@ function statusText(c, only) {
   lines.push(c.me ? `当前操作者：${nm(c.me)}（${c.me}）` : '当前操作者：未识别。需要人做决定时先问「你是哪位成员」，再运行 whoami --set <成员标识>')
   lines.push(`【项目】${s.project.name}（${s.project.type === 'new' ? '新产品' : '存量产品'}）· ${s.project.positioning}`)
   const r = s.online.running
-  lines.push(`线上在跑：${r ? `${r.version ?? '没有版本'}${r.build ? ' ' + r.build : ''}（${md(r.since)} ${r.how === 'rollback' ? '从 ' + r.from.join('、') + ' 回滚' : r.how === 'baseline' ? '登记，接入面板前已在线上' : '部署'}）` : '还没有生产部署记录'} · 最后发布：${s.online.lastReleased ? `${s.online.lastReleased.version}（${md(s.online.lastReleased.at)}）` : '无'}`)
+  lines.push(`线上在跑：${r ? `${r.version ?? '没有版本'}${r.build ? ' ' + r.build : ''}（${md(r.since)} ${r.how === 'rollback' ? '从 ' + r.from.join('、') + ' 回滚' : r.how === 'baseline' ? '登记，接入面板前已在线上' : r.how === 'exception' ? '例外上线，没走完门控，待补齐' : '部署'}）` : '还没有生产部署记录'} · 最后发布：${s.online.lastReleased ? `${s.online.lastReleased.version}（${md(s.online.lastReleased.at)}）` : '无'}`)
   const l0 = s.config.filter((x) => x.level === 'L0' && x.status !== 'confirmed'), l1 = s.config.filter((x) => x.level === 'L1' && !['confirmed', 'na'].includes(x.status)), l2 = s.config.filter((x) => x.level === 'L2' && ['todo', 'draft'].includes(x.status))
   const CS = { todo: '未填', skipped: '暂不填', draft: '草稿待审' }
   if (l0.length) {
