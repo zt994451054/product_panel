@@ -115,7 +115,7 @@ const sopFiles = tracked.filter((f) => /^agents\/sop\/SOP-\d{2}(?:\.\d+)?-[^/]+\
 
 // C06 files silently swallowed by the whitelist .gitignore
 {
-  const allowed = [/node_modules\//, /\/dist\//, /\.DS_Store$/, /^engineering\/workspace\//, /^testing\/[^/]+\/workspace\//, /^maintainer\/validation\/runs\//]
+  const allowed = [/node_modules\//, /\/dist\//, /\.DS_Store$/, /^engineering\/workspace\//, /^testing\/[^/]+\/workspace\//, /^maintainer\/validation\/runs\//, /^profile\.md$/, /^cockpit\.html$/]
   const ignored = git('ls-files', '--others', '--ignored', '--exclude-standard', '-z').split('\0').filter(Boolean)
     .filter((f) => !allowed.some((re) => re.test(f)))
   report('C06', '没有被白名单 .gitignore 静默忽略的文件', ignored.length ? 'FAIL' : 'PASS',

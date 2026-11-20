@@ -1,0 +1,314 @@
+{
+  "_note": "Static definitions of the config checklist. Status lives in events (config_set), never here. level/before are keyed by product type; before is the stage that needs the item, or first_upload.",
+  "items": [
+    {
+      "id": "product_info",
+      "no": 1,
+      "name": "产品基本信息",
+      "level": {
+        "new": "L0",
+        "legacy": "L0"
+      },
+      "before": {
+        "new": null,
+        "legacy": null
+      },
+      "targets": [
+        "AGENTS.md",
+        "README.md"
+      ]
+    },
+    {
+      "id": "version_owners",
+      "no": 2,
+      "name": "版本与负责人",
+      "level": {
+        "new": "L0",
+        "legacy": "L0"
+      },
+      "before": {
+        "new": null,
+        "legacy": null
+      },
+      "targets": []
+    },
+    {
+      "id": "product_arch",
+      "no": 3,
+      "name": "产品架构与功能清单",
+      "level": {
+        "new": "L2",
+        "legacy": "L1"
+      },
+      "before": {
+        "new": null,
+        "legacy": "requirements"
+      },
+      "targets": [
+        "foundation/product-arch/overview.md",
+        "foundation/product-arch/information-arch.md"
+      ]
+    },
+    {
+      "id": "design_system",
+      "no": 4,
+      "name": "设计系统",
+      "level": {
+        "new": "L1",
+        "legacy": "L1"
+      },
+      "before": {
+        "new": "design",
+        "legacy": "design"
+      },
+      "targets": [
+        "standards/design/DESIGN.md"
+      ]
+    },
+    {
+      "id": "repos",
+      "no": 5,
+      "name": "工程清单",
+      "level": {
+        "new": "L1",
+        "legacy": "L1"
+      },
+      "before": {
+        "new": "tech",
+        "legacy": "tech"
+      },
+      "targets": [
+        "engineering/README.md",
+        "engineering/docs/tech-stack.md"
+      ]
+    },
+    {
+      "id": "tech_arch",
+      "no": 6,
+      "name": "技术架构",
+      "level": {
+        "new": "L1",
+        "legacy": "L1"
+      },
+      "before": {
+        "new": "tech",
+        "legacy": "tech"
+      },
+      "targets": [
+        "foundation/tech-arch/overview.md"
+      ]
+    },
+    {
+      "id": "full_schema",
+      "no": 7,
+      "name": "全量表结构",
+      "level": {
+        "new": "na",
+        "legacy": "L1"
+      },
+      "before": {
+        "new": null,
+        "legacy": "tech"
+      },
+      "targets": [
+        "engineering/docs/db-schema/full-schema.md"
+      ]
+    },
+    {
+      "id": "full_api",
+      "no": 8,
+      "name": "全量 API 清单",
+      "level": {
+        "new": "na",
+        "legacy": "L1"
+      },
+      "before": {
+        "new": null,
+        "legacy": "tech"
+      },
+      "targets": [
+        "engineering/docs/api-docs/openapi.yaml"
+      ]
+    },
+    {
+      "id": "local_dev",
+      "no": 9,
+      "name": "本地开发环境",
+      "level": {
+        "new": "L1",
+        "legacy": "L1"
+      },
+      "before": {
+        "new": "dev",
+        "legacy": "dev"
+      },
+      "targets": [
+        "engineering/docs/local-env.md",
+        "engineering/docs/local-setup.md"
+      ]
+    },
+    {
+      "id": "environments",
+      "no": 10,
+      "name": "环境配置",
+      "level": {
+        "new": "L1",
+        "legacy": "L1"
+      },
+      "before": {
+        "new": "test",
+        "legacy": "tech"
+      },
+      "targets": [
+        "engineering/docs/environments.md",
+        "testing/docs/environments.md"
+      ]
+    },
+    {
+      "id": "ops_profile",
+      "no": 11,
+      "name": "运维与发布画像",
+      "level": {
+        "new": "L1",
+        "legacy": "L1"
+      },
+      "before": {
+        "new": "test",
+        "legacy": "tech"
+      },
+      "targets": [
+        "engineering/docs/ops-profile.md"
+      ]
+    },
+    {
+      "id": "object_storage",
+      "no": 12,
+      "name": "对象存储",
+      "level": {
+        "new": "L1",
+        "legacy": "L1"
+      },
+      "before": {
+        "new": "first_upload",
+        "legacy": "first_upload"
+      },
+      "targets": [
+        "OSS.md"
+      ]
+    },
+    {
+      "id": "standards",
+      "no": 13,
+      "name": "规范确认",
+      "level": {
+        "new": "L2",
+        "legacy": "L2"
+      },
+      "before": {
+        "new": null,
+        "legacy": null
+      },
+      "targets": [
+        "standards/README.md"
+      ]
+    },
+    {
+      "id": "market_research",
+      "no": 14,
+      "name": "市场调研",
+      "level": {
+        "new": "L2",
+        "legacy": "L2"
+      },
+      "before": {
+        "new": null,
+        "legacy": null
+      },
+      "targets": [
+        "foundation/market/market-research.md"
+      ]
+    },
+    {
+      "id": "competitor_analysis",
+      "no": 15,
+      "name": "竞品分析",
+      "level": {
+        "new": "L2",
+        "legacy": "L2"
+      },
+      "before": {
+        "new": null,
+        "legacy": null
+      },
+      "targets": [
+        "foundation/market/competitor-analysis.md"
+      ]
+    },
+    {
+      "id": "user_research",
+      "no": 16,
+      "name": "用户研究",
+      "level": {
+        "new": "L2",
+        "legacy": "L2"
+      },
+      "before": {
+        "new": null,
+        "legacy": null
+      },
+      "targets": [
+        "foundation/market/user-research.md"
+      ]
+    },
+    {
+      "id": "business_model",
+      "no": 17,
+      "name": "商业模式",
+      "level": {
+        "new": "L2",
+        "legacy": "L2"
+      },
+      "before": {
+        "new": null,
+        "legacy": null
+      },
+      "targets": [
+        "foundation/business/business-model.md"
+      ]
+    },
+    {
+      "id": "go_to_market",
+      "no": 18,
+      "name": "上市策略",
+      "level": {
+        "new": "L2",
+        "legacy": "L2"
+      },
+      "before": {
+        "new": null,
+        "legacy": null
+      },
+      "targets": [
+        "foundation/business/go-to-market.md"
+      ]
+    },
+    {
+      "id": "test_projects",
+      "no": 19,
+      "name": "测试工程引用",
+      "level": {
+        "new": "L2",
+        "legacy": "L2"
+      },
+      "before": {
+        "new": null,
+        "legacy": null
+      },
+      "targets": [
+        "testing/integration/README.md",
+        "testing/e2e/README.md",
+        "testing/performance/README.md"
+      ]
+    }
+  ]
+}
