@@ -3,9 +3,11 @@
 // Usage: node tools/panel.mjs <command> [--flag value ...]    (run `node tools/panel.mjs help` for the list)
 // Zero dependencies: Node built-ins and the local git binary.
 
-import { resolve } from 'node:path'
+import { writeFileSync } from 'node:fs'
+import { isAbsolute, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { git, isoIn, readAll, readDefs, writeEvent } from './lib/store.mjs'
+import { renderCockpit } from './lib/cockpit.mjs'
 import { CONFIG_STATUS, FIXED_HUMAN, FLOWS, MODES, STAGES, STAGE_NAME, dayIn, derive } from './lib/derive.mjs'
 
 class Fail extends Error {}
@@ -223,6 +225,11 @@ const commands = {
     if (issues.length) throw new Fail(`发现 ${issues.length} 个问题：\n` + issues.map((x) => '- ' + x).join('\n'))
     return `检查通过：${c.all.events.length} 条事件，没有发现问题。` + (c.all.gitless ? '\n（这里不是 git 仓库，只检查了当前目录。）' : '')
   },
+  render(c, f) {
+    const out = typeof f.out === 'string' ? (isAbsolute(f.out) ? f.out : join(c.root, f.out)) : join(c.root, 'cockpit.html')
+    writeFileSync(out, renderCockpit(c))
+    return `驾驶舱已生成：${out}\n用浏览器打开即可。它是生成当时的快照，状态变化后重新运行本命令。这个文件不入库。`
+  },
   help() { return HELP },
 }
 
@@ -296,6 +303,7 @@ const HELP = `用法：node tools/panel.mjs <命令> [--参数 值 ...]
 读取
   status [--version v] [--json]     状态摘要（每次对话先读这个）
   check [--branch 分支]              检查状态数据；带 --branch 时列出只存在于该分支上的事件
+  render [--out 路径]                生成只读驾驶舱 cockpit.html（给人看的页面，不入库）
 
 项目
   init --name --type new|legacy [--positioning --timezone] --by

@@ -123,7 +123,8 @@ AI 的入口是 [AGENTS.md](./AGENTS.md)。每次新对话按固定顺序执行�
 ## 快速定位当前工作
 
 ```
-node tools/panel.mjs status ← 各版本的阶段、等谁签收、卡在哪
+node tools/panel.mjs render ← 生成驾驶舱 cockpit.html，浏览器打开看全局
+node tools/panel.mjs status ← 文字版：各版本的阶段、等谁签收、卡在哪
 versions/{ver}/README.md   ← 版本目标和范围
 versions/{ver}/CHANGES.md  ← 最新变更记录
 ```

@@ -115,7 +115,7 @@ The full index is in [AGENTS.md](./AGENTS.md) §5 and the procedures are in [age
 | `SETUP.md` | Configuration checklist: the items plus instructions per item |
 | `agents/` | Procedures (SOPs), collaboration and communication rules |
 | `state/` | Project state: append-only event records, read and written by the tool. Do not edit by hand |
-| `tools/` | State tool: `node tools/panel.mjs status` shows progress; the AI uses it to record stages and sign-offs |
+| `tools/` | State tool: `node tools/panel.mjs render` builds a read-only cockpit page (`cockpit.html`), `status` prints the same as text; the AI uses it to record stages and sign-offs |
 | `standards/` | 59 default standards in 10 domains, usable as-is or editable. See [standards/README.md](./standards/README.md) |
 | `foundation/` | Long-lived baselines across versions: market, business model, product architecture, technical architecture, unified prototype |
 | `versions/` | Per-version requirements, design, solution, testing and release documents. Run `node tools/panel.mjs status` to see where each version stands |

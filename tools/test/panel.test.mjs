@@ -231,3 +231,24 @@ test('a machine with a slow clock cannot reorder history silently', () => {
   r.no(/不在进行中/, ...late, '--backfill', '时钟慢了')
   assert.equal(r.state().versions[0].current.check, undefined)
 })
+
+test('render writes a self-contained cockpit, also for an empty project, and data cannot break out of the script tag', () => {
+  const dataOf = (root) => {
+    const html = readFileSync(join(root, 'cockpit.html'), 'utf8')
+    assert.equal(html.includes('/*__DATA__*/'), false)
+    assert.equal((html.match(/<\/script>/g) ?? []).length, 1)
+    return JSON.parse(html.match(/const DATA = (\{.*\});\n/)[1])
+  }
+  const empty = repo(); empty.ok('render')
+  assert.equal(dataOf(empty.root).initialized, false)
+
+  const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00')
+  r.ok('stage', 'enter', '--version', 'v1.0.0', '--stage', 'requirements', '--by', 'ai', '--at', '2026-10-02T09:00')
+  r.ok('stage', 'check', '--version', 'v1.0.0', '--stage', 'requirements', '--check', 'a|ok|b', '--by', 'ai', '--at', '2026-10-03T09:00')
+  r.ok('stage', 'request', '--version', 'v1.0.0', '--stage', 'requirements', '--to', 'xiaolin', '--summary', '看一下 </script><b>', '--by', 'ai', '--at', '2026-10-03T10:00')
+  assert.match(r.ok('render'), /驾驶舱已生成/)
+  const d = dataOf(r.root), v = d.versions[0]
+  assert.equal(d.initialized, true); assert.equal(v.current.stage, 'requirements'); assert.equal(v.created.slice(0, 16), '2026-10-01T09:00')
+  assert.equal(d.inbox.some((i) => i.kind === '等你签收' && i.who.includes('xiaolin')), true)
+  assert.equal(d.inbox.some((i) => i.kind === '停滞'), true)
+})

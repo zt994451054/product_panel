@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>驾驶舱</title>
+<style>
+:root {
+  --page: #f1f4fa; --surface: #ffffff; --sunken: #f3f6fb;
+  --ink: #141a2b; --ink-2: #4c556b; --muted: #8a93a8; --hair: #e9edf5; --axis: #d5dbe8;
+  --blue: #2f6bff; --blue-soft: #e8efff;
+  --green: #22c08a; --coral: #ff6b6b; --amber: #f7a81b; --sky: #4a90f5; --idle: #cfd6e4;
+  --good: #22c08a; --crit: #ff5d5d; --warn: #f7a81b;
+  --s1: #2f6bff; --s2: #ff9a3d;
+  --sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --round: ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "DIN Alternate", "PingFang SC", system-ui, sans-serif;
+  --shadow: 0 1px 2px rgba(20,26,43,.04), 0 10px 30px rgba(40,70,140,.07);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 18px 26px 70px; }
+button, select, input { font: inherit; color: inherit; }
+.num { font-family: var(--round); font-variant-numeric: tabular-nums; font-weight: 700; }
+
+/* top bar */
+.mast { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 6px 0 18px; }
+.logo { width: 44px; height: 44px; border-radius: 13px; background: linear-gradient(135deg, #4d8dff, #2f55f0); color: #fff; display: grid; place-items: center; font: 800 21px var(--sans); box-shadow: 0 8px 18px rgba(47,107,255,.32); }
+h1 { font: 800 30px/1 var(--sans); margin: 0; letter-spacing: .04em; }
+.subtitle { color: var(--ink-2); font-weight: 600; padding-left: 16px; border-left: 2px solid var(--axis); }
+.tabs { display: flex; gap: 6px; margin: 0 auto; }
+.tab { background: var(--surface); border: 0; padding: 9px 18px; font-size: 15px; font-weight: 600; color: var(--ink-2); cursor: pointer; border-radius: 14px; display: inline-flex; align-items: center; gap: 7px; transition: transform .15s, background .15s; }
+.tab:hover { transform: translateY(-1px); }
+.tab[aria-selected="true"] { background: var(--blue); color: #fff; box-shadow: 0 8px 18px rgba(47,107,255,.32); }
+.badge { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--coral); color: #fff; font: 700 11px/20px var(--round); text-align: center; }
+.badge:empty { display: none; }
+.who { display: flex; align-items: center; gap: 8px; background: var(--surface); border-radius: 30px; padding: 5px 12px 5px 5px; box-shadow: var(--shadow); }
+.avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #7fb1ff, #2f6bff); color: #fff; display: grid; place-items: center; font-weight: 700; }
+.who select { border: 0; background: none; font-weight: 600; cursor: pointer; outline: none; }
+.view { display: none; } .view.on { display: block; }
+.view.on > * { animation: rise .45s cubic-bezier(.2,.8,.2,1) both; }
+.view.on > *:nth-child(2) { animation-delay: .06s; } .view.on > *:nth-child(3) { animation-delay: .12s; } .view.on > *:nth-child(4) { animation-delay: .18s; } .view.on > *:nth-child(5) { animation-delay: .24s; }
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } }
+
+.card { background: var(--surface); border-radius: 22px; padding: 22px 24px; box-shadow: var(--shadow); }
+.card + .card, .grid + .card, .card + .grid, .grid + .grid, .hero + .tiles, .tiles + .grid { margin-top: 18px; }
+.grid { display: grid; gap: 18px; align-items: start; }
+.grid > .card { margin-top: 0; }
+.g2 { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+.g2e { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.g3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, .9fr); gap: 26px; }
+@media (max-width: 900px) { .g2, .g2e, .g3 { grid-template-columns: 1fr; } .tabs { order: 3; width: 100%; } }
+h2 { font: 800 19px/1.3 var(--sans); margin: 0 0 4px; display: flex; align-items: center; gap: 9px; }
+h2 .ico { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; color: #fff; font-size: 14px; flex: none; }
+h3 { font: 700 14px var(--sans); margin: 0 0 12px; }
+.sub { color: var(--muted); font-size: 12.5px; margin: 0 0 14px; }
+.head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.hot { color: var(--coral); font-family: var(--round); }
+
+/* hero route */
+.hero { position: relative; overflow: hidden; border-radius: 26px; padding: 26px 30px 22px; background: linear-gradient(120deg, #cfe2ff 0%, #dcebff 45%, #b9d6ff 100%); box-shadow: var(--shadow); }
+.hero::before, .hero::after { content: ""; position: absolute; border-radius: 50%; background: rgba(255,255,255,.75); filter: blur(2px); }
+.hero::before { width: 300px; height: 300px; right: -70px; bottom: -190px; box-shadow: -150px 40px 0 -40px rgba(255,255,255,.6), -260px 70px 0 -70px rgba(255,255,255,.45); }
+.hero::after { width: 420px; height: 420px; right: 40px; top: -330px; background: rgba(255,255,255,.28); }
+.rocket { position: absolute; right: 46px; top: 14px; font-size: 118px; line-height: 1; transform: rotate(8deg); filter: drop-shadow(0 16px 18px rgba(30,70,160,.25)); animation: float 5s ease-in-out infinite; z-index: 1; }
+@keyframes float { 50% { transform: rotate(8deg) translate(6px, -10px); } }
+.hero-top { position: relative; z-index: 2; }
+.hero .ver { font: 800 34px/1.15 var(--sans); }
+.hero .ver b { font-family: var(--round); }
+.hero .goal { color: #2d3b5c; font-weight: 600; margin-top: 2px; }
+.route { position: relative; z-index: 2; display: grid; grid-template-columns: repeat(8, 1fr); margin: 46px 190px 0 -20px; }
+.stn { position: relative; text-align: center; padding-top: 44px; background: none; border: 0; cursor: pointer; }
+.stn::before { content: ""; position: absolute; top: 17px; left: -50%; width: 100%; height: 4px; border-radius: 4px; background: rgba(255,255,255,.9); }
+.stn:first-child::before { display: none; }
+.stn.done::before { background: var(--green); } .stn.doing::before { background: linear-gradient(90deg, var(--green), var(--blue)); }
+.dot { position: absolute; top: 0; left: 50%; width: 38px; height: 38px; margin-left: -19px; border-radius: 50%; background: #fff; border: 4px solid #fff; z-index: 1; display: grid; place-items: center; color: #fff; font-weight: 800; box-shadow: 0 4px 10px rgba(30,70,160,.16); transition: transform .18s; }
+.stn:hover .dot { transform: scale(1.12); }
+.done .dot { background: var(--green); }
+.doing .dot { background: var(--blue); box-shadow: 0 0 0 7px rgba(47,107,255,.2), 0 6px 14px rgba(47,107,255,.4); animation: pulse 2s ease-in-out infinite; }
+.doing .dot::after { content: ""; width: 12px; height: 12px; border-radius: 50%; background: #fff; }
+.todo .dot { background: #c3cbdb; } .todo .dot::after { content: ""; width: 12px; height: 12px; border-radius: 50%; background: #fff; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 13px rgba(47,107,255,0), 0 6px 14px rgba(47,107,255,.4); } }
+.stn .nm { font-weight: 700; font-size: 15px; }
+.stn.todo .nm { color: #6c7892; font-weight: 600; }
+.stn .dd { font: 600 12px var(--round); color: #47557a; }
+.stn .how { font-size: 11px; color: #5d6b8d; }
+.stn.sel .nm { color: var(--blue); }
+.bubble { position: absolute; top: -40px; left: 50%; transform: translateX(-50%); background: var(--blue); color: #fff; font-weight: 700; font-size: 13px; padding: 4px 12px; border-radius: 9px; white-space: nowrap; box-shadow: 0 8px 16px rgba(47,107,255,.35); }
+.bubble::after { content: ""; position: absolute; left: 50%; bottom: -5px; width: 10px; height: 10px; margin-left: -5px; background: var(--blue); transform: rotate(45deg); }
+.note { position: relative; z-index: 2; margin-top: 18px; padding: 11px 16px; background: rgba(255,255,255,.78); border-radius: 14px; font-size: 13px; backdrop-filter: blur(6px); }
+.note b { font-weight: 700; }
+
+/* KPI tiles */
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+@media (max-width: 900px) { .tiles { grid-template-columns: repeat(2, 1fr); } .route { margin-right: 0; } .rocket { display: none; } }
+.tile { position: relative; overflow: hidden; border-radius: 24px; padding: 76px 24px 18px; color: #fff; min-height: 150px; display: flex; flex-direction: column; justify-content: flex-end; transition: transform .2s; box-shadow: 0 14px 28px -12px var(--c); background: var(--c); }
+.tile:hover { transform: translateY(-4px); }
+.tile .v { font: 800 72px/1 var(--round); letter-spacing: -.03em; }
+.tile .v small { font-size: 34px; font-weight: 800; }
+.tile .k { font-weight: 700; font-size: 17px; margin-top: 4px; }
+.tile .d { font-size: 12.5px; opacity: .9; }
+.tile .mk { position: absolute; left: 22px; top: 18px; width: 46px; height: 46px; border-radius: 50%; background: rgba(255,255,255,.26); display: grid; place-items: center; font-size: 22px; font-weight: 800; }
+.tile .wm { position: absolute; right: -14px; bottom: -22px; font: 800 150px/1 var(--round); opacity: .16; transform: rotate(-10deg); pointer-events: none; }
+
+/* lists */
+.item { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; padding: 14px; margin-top: 10px; background: var(--sunken); border-radius: 16px; align-items: start; }
+.kind { font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px; background: #ffe7e4; color: #e5484d; white-space: nowrap; margin-top: 2px; }
+.item .t { font-weight: 700; }
+.item .w { grid-column: 2 / 4; color: var(--ink-2); font-size: 12.5px; }
+.item .p { grid-column: 1 / 4; display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; margin-top: 4px; }
+.say { font: 12.5px/1.6 var(--sans); color: var(--ink-2); background: var(--surface); border: 1px dashed var(--axis); border-radius: 12px; padding: 8px 12px; white-space: pre-wrap; word-break: break-word; }
+.copy { background: var(--blue); color: #fff; border: 0; border-radius: 11px; padding: 7px 14px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: transform .12s, background .15s; }
+.copy:hover { transform: scale(1.05); } .copy.ok { background: var(--green); }
+.owner { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.empty { color: var(--muted); padding: 18px 0; }
+.seg { display: inline-flex; background: var(--sunken); border-radius: 12px; padding: 3px; }
+.seg button { background: none; border: 0; padding: 4px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer; color: var(--ink-2); border-radius: 9px; }
+.seg button.on { background: var(--surface); color: var(--blue); box-shadow: 0 2px 6px rgba(20,26,43,.1); }
+.chk { display: grid; grid-template-columns: 24px 1fr; gap: 0 10px; padding: 9px 0; border-top: 1px solid var(--hair); }
+.chk:first-of-type { border-top: 0; }
+.chk .ic { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 12px; font-weight: 800; margin-top: 1px; }
+.chk.ok .ic { background: var(--good); } .chk.no .ic { background: var(--crit); }
+.chk .tx { font-weight: 600; } .chk.ok .tx { color: var(--ink-2); }
+.chk .ev { grid-column: 2; font-size: 12.5px; color: var(--muted); }
+.chk .src { font-size: 11px; color: var(--muted); margin-left: 8px; font-weight: 400; }
+.pill { font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 20px; color: var(--ink-2); background: var(--sunken); white-space: nowrap; }
+.pill.sig { background: #ffe7e4; color: #e5484d; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; padding: 6px 10px 8px 0; border-bottom: 1px solid var(--axis); white-space: nowrap; }
+td { padding: 10px 10px 10px 0; border-bottom: 1px solid var(--hair); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.r, th.r { text-align: right; }
+
+/* charts */
+.donut { display: flex; align-items: center; gap: 22px; }
+.donut svg { width: 150px; height: 150px; flex: none; transform: rotate(-90deg); }
+.donut circle { fill: none; stroke-width: 20; transition: stroke-width .15s; }
+.donut circle[data-tip]:hover { stroke-width: 24; }
+.donut .mid { position: relative; }
+.donut .c { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
+.donut .c b { font: 800 24px/1.1 var(--round); } .donut .c span { font-size: 11px; color: var(--muted); }
+.lg { display: grid; grid-template-columns: auto 1fr auto; gap: 7px 9px; align-items: center; font-size: 13px; flex: 1; }
+.sw { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.stack { display: flex; gap: 2px; height: 22px; margin: 6px 0 12px; }
+.stack i { display: block; min-width: 4px; }
+.stack i:first-child { border-radius: 8px 0 0 8px; } .stack i:last-child { border-radius: 0 8px 8px 0; }
+.bars { display: grid; grid-template-columns: auto 1fr; gap: 9px 12px; align-items: center; font-size: 13px; }
+.bars .lab { color: var(--ink-2); white-space: nowrap; }
+.bar { display: flex; align-items: center; gap: 8px; height: 12px; }
+.bar i { display: block; height: 100%; border-radius: 8px; min-width: 4px; }
+.bar em { font: normal 600 12px var(--round); color: var(--ink-2); white-space: nowrap; }
+.pair { display: grid; gap: 3px; }
+#tip { position: fixed; z-index: 9; pointer-events: none; background: #141a2b; color: #fff; font-size: 12px; padding: 6px 10px; border-radius: 9px; max-width: 280px; opacity: 0; transition: opacity .12s; }
+
+/* handbook */
+.search { width: 100%; padding: 14px 20px; font-size: 16px; border-radius: 18px; border: 2px solid transparent; background: var(--surface); box-shadow: var(--shadow); outline: none; }
+.search:focus { border-color: var(--blue); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 6px; }
+.chip { background: var(--surface); border: 0; border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--ink-2); }
+.chip.on { background: var(--blue); color: #fff; }
+.hb { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+@media (max-width: 900px) { .hb { grid-template-columns: 1fr; } }
+.hcard { background: var(--surface); border-radius: 18px; padding: 16px 18px; display: grid; gap: 8px; align-content: start; box-shadow: var(--shadow); }
+.hcard .top { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+.hcard .ti { font-weight: 700; } .hcard .gp { font-size: 11px; color: var(--muted); }
+.hcard .say { background: var(--sunken); border: 0; }
+details { border-top: 1px solid var(--hair); padding: 12px 0; } details:first-of-type { border-top: 0; }
+summary { cursor: pointer; font-weight: 700; } details p { margin: 8px 0 0; color: var(--ink-2); }
+mark { background: #ffe58a; color: inherit; padding: 0 2px; border-radius: 3px; }
+.foot { margin-top: 30px; color: var(--muted); font-size: 12px; text-align: center; }
+
+/* ---------- v0.2 multi-version additions ---------- */
+:root { --st1: #2a78d6; --st2: #eb6834; --st3: #1baf7a; --st4: #eda100; --st5: #e87ba4; --st6: #008300; --st7: #6250d6; }
+.tiles .tile .v.ver { font-size: 54px; }
+.banner { background: #fff0ee; border: 2px solid #ffb4ad; color: #a3231c; border-radius: 18px; padding: 12px 18px; margin-bottom: 18px; font-weight: 600; display: flex; gap: 10px; align-items: center; }
+.banner b { background: var(--crit); color: #fff; border-radius: 50%; width: 22px; height: 22px; display: grid; place-items: center; flex: none; font-size: 13px; }
+.vrow { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 6px 22px; padding: 18px 0; border-top: 1px solid var(--hair); }
+.vrow:first-of-type { border-top: 0; }
+.vid { font: 800 26px/1.1 var(--round); background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.vid:hover { color: var(--blue); }
+.vgoal { color: var(--ink-2); font-size: 13px; margin-top: 4px; }
+.track { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; margin-top: 4px; }
+.st { position: relative; text-align: center; padding-top: 34px; }
+.st::before { content: ""; position: absolute; top: 12px; left: -50%; width: 100%; height: 4px; border-radius: 4px; background: var(--idle); }
+.st:first-child::before { display: none; }
+.st.done::before, .st.open::before { background: var(--green); }
+.st i { position: absolute; top: 0; left: 50%; width: 28px; height: 28px; margin-left: -14px; border-radius: 50%; z-index: 1; display: grid; place-items: center; color: #fff; font: 800 13px var(--round); font-style: normal; background: var(--idle); border: 3px solid #fff; }
+.st.done i { background: var(--green); }
+.st.open i { background: var(--blue); box-shadow: 0 0 0 5px rgba(47,107,255,.2); animation: pulse 2s ease-in-out infinite; }
+.st.reopened i { background: #fff; border-color: var(--amber); color: var(--amber); }
+.st.untracked i { background: #fff; border: 2px dashed var(--idle); color: var(--muted); }
+.st .nm { font-weight: 700; font-size: 13px; } .st.pending .nm, .st.untracked .nm { color: var(--muted); font-weight: 600; }
+.st .dd { font: 600 11.5px var(--round); color: var(--muted); }
+.paused .track { opacity: .45; }
+.facts { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-top: 10px; }
+.pill.blue { background: var(--blue-soft); color: var(--blue); } .pill.red { background: #ffe7e4; color: #d93a3f; } .pill.amber { background: #fff3d6; color: #9a6400; } .pill.green { background: #dff7ee; color: #0f8a5f; } .pill.gray { background: #eceff5; color: #5b6478; }
+.srcline { grid-column: 2; font-size: 12px; color: var(--muted); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.srcline code, td code { font: 12px ui-monospace, Menlo, monospace; background: var(--sunken); padding: 1px 6px; border-radius: 6px; color: var(--ink-2); }
+.ghost { background: var(--sunken); color: var(--ink-2); border: 0; border-radius: 11px; padding: 6px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.ghost:hover { background: var(--blue-soft); color: var(--blue); }
+.donev { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.rec { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; padding: 10px 0; border-top: 1px solid var(--hair); font-size: 13px; }
+.rec:first-of-type { border-top: 0; }
+.rec .q { grid-column: 2; color: var(--ink-2); } .rec .m { grid-column: 2; font-size: 11.5px; color: var(--muted); }
+.tl { width: 100%; height: auto; display: block; }
+.tl text { font: 11px var(--sans); fill: var(--muted); } .tl .vl { font: 700 13px var(--round); fill: var(--ink); } .tl .in { font: 600 11px var(--sans); fill: #fff; pointer-events: none; } .tl .in.dk { fill: #0b0b0b; }
+.tl [data-tip] { cursor: default; } .tl rect[data-tip]:hover { opacity: .82; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+@media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, 1fr); } .vrow { grid-template-columns: 1fr; } .facts, .srcline { grid-column: 1; } }
+.kpis + .grid, .kpis + .card { margin-top: 18px; }
+.sbar { display: flex; gap: 2px; height: 20px; }
+.sbar i { display: block; height: 100%; min-width: 3px; border-radius: 4px; }
+.back { background: none; border: 0; color: var(--blue); font-weight: 700; cursor: pointer; padding: 0; margin-bottom: 12px; }
+.evt.off td { color: var(--muted); text-decoration: line-through; } .evt.bad td { color: #d93a3f; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="mast">
+    <div class="logo" id="logo"></div>
+    <h1 id="pname"></h1>
+    <div class="subtitle">产品驱动面板 · 驾驶舱</div>
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" data-v="home">总览<span class="badge" id="nbadge"></span></button>
+      <button class="tab" role="tab" data-v="line">时间线</button>
+      <button class="tab" role="tab" data-v="data">数据</button>
+      <button class="tab" role="tab" data-v="book">帮助手册</button>
+      <button class="tab" role="tab" data-v="conf">设置</button>
+    </nav>
+    <div class="who"><span class="avatar" id="avatar"></span><select id="me" aria-label="当前身份"></select></div>
+  </header>
+  <main>
+    <section class="view" id="home"></section>
+    <section class="view" id="line"></section>
+    <section class="view" id="data"></section>
+    <section class="view" id="book"></section>
+    <section class="view" id="conf"></section>
+    <section class="view" id="ver"></section>
+  </main>
+  <div class="foot" id="foot"></div>
+</div>
+<div id="tip"></div>
+
+<script>
+/*__DATA__*/
+const $ = (s, r = document) => r.querySelector(s)
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+const member = (id) => DATA.members.find((m) => m.id === id)
+const nm = (id) => id === 'ai' ? 'AI' : id === 'review-panel' ? '评审团' : member(id)?.name ?? id
+const SN = DATA.stageName
+const SHORT = { requirements: '需求', design: '设计', tech: '方案', test_design: '测设', dev: '开发', test: '测试', release: '发布' }
+const SCOL = Object.fromEntries(DATA.flows.standard.map((s, i) => [s, 'var(--st' + (i + 1) + ')']))
+const MODE = { human: '人工签收', review_human: '评审后人工签收', auto: '评审团自动放行' }
+const STATUS = { planned: '规划中', active: '在研', paused: '挂起', abandoned: '已放弃', released: '已发布' }
+const FLOW = { standard: '常规', hotfix: '热修复' }
+const md = (d) => d ? d.slice(5, 10) : '—'
+const T = (d) => Date.parse(d.slice(0, 10) + 'T00:00:00Z')
+const dur = (h) => h < 1 ? '不到 1 小时' : h < 36 ? Math.round(h) + ' 小时' : (h / 24).toFixed(1) + ' 天'
+const days = (n) => n < 1 ? '不足 1 天' : n + ' 天'
+const dd = (s) => s.days >= 1 ? s.days + ' 天' : s.hours >= 1 ? s.hours + ' 小时' : '不到 1 小时'
+// Who is looking is a per-browser choice until the personal profile lands; it never leaves this page.
+let savedMe = null; try { savedMe = localStorage.getItem('panel.me') } catch {}
+const state = { me: DATA.members.some((m) => m.id === savedMe) ? savedMe : DATA.members[0]?.id ?? null, mine: false, q: '', group: '全部', ver: null }
+const prompts = []
+const copyBtn = (text, label) => `<button class="copy" data-copy="${prompts.push(text) - 1}">${label ?? '复制'}</button>`
+const live = () => DATA.versions.filter((v) => ['active', 'planned', 'paused'].includes(v.status)).sort((a, b) => (a.planned ?? '9') < (b.planned ?? '9') ? -1 : 1)
+const myInbox = () => DATA.inbox.filter((i) => !state.mine || i.who.includes(state.me))
+const conflictCount = DATA.versions.reduce((n, v) => n + v.conflicts.length, 0) + DATA.projectConflicts.length + DATA.problems.length
+
+/* ---------- 总览 ---------- */
+function trackRow(v) {
+  const stations = v.stages.map((s, i) => {
+    const mark = s.state === 'done' ? '✓' : s.state === 'reopened' ? '↩' : i + 1
+    const sub = s.state === 'pending' ? '' : s.state === 'untracked' ? '未跟踪' : dd(s) + (s.rollbacks ? ' · 退 ' + s.rollbacks : '')
+    const tip = SN[s.key] + '：' + ({ done: '已签收', open: '进行中', pending: '未开始', reopened: '已回退，待重新签收', untracked: '接入前已完成，未跟踪' }[s.state]) + (s.signoff ? '，' + nm(s.signoff.by) + ' ' + md(s.signoff.at) + '「' + s.signoff.quote + '」' : '')
+    return `<div class="st ${s.state}" data-tip="${esc(tip)}"><i>${mark}</i><div class="nm">${s.name}</div><div class="dd">${sub}</div></div>`
+  }).join('')
+  const f = []
+  if (v.hold) f.push(`<span class="pill gray" data-tip="${esc(nm(v.owners.product) + '：「' + v.hold.quote + '」')}">挂起 ${v.hold.days} 天 · ${esc(v.hold.reason)} · 恢复条件：${esc(v.hold.resumeWhen)}</span>`)
+  else if (v.current) f.push(`<span class="pill blue">${v.current.name} ${v.current.days >= 1 ? '第 ' + v.current.days + ' 天' : '已 ' + dd(v.current)}</span>`)
+  else if (v.between) f.push(`<span class="pill blue">上一阶段已签收，待进入${v.between.name}</span>`)
+  if (v.current?.stalled) f.push(`<span class="pill amber">停滞，超过 ${v.current.threshold} 天基准</span>`)
+  if (v.waiting) f.push(`<span class="pill red">等 ${v.waiting.to.map(nm).join('、')} 签收 ${v.waiting.days} 天</span>`)
+  for (const b of v.blocks) f.push(`<span class="pill red" data-tip="${esc(b.text)}">阻塞 ${b.days} 天 · 归 ${nm(b.owner)}${b.ref ? ' · ' + esc(b.ref) : ''}</span>`)
+  if (v.conflicts.length) f.push(`<span class="pill red" data-tip="${esc(v.conflicts[0].why)}">有 ${v.conflicts.length} 条矛盾记录</span>`)
+  if (DATA.online.deployedNotReleased.includes(v.id)) f.push(DATA.online.running?.how === 'rollback' && DATA.online.running.from.includes(v.id) ? `<span class="pill red">已部署后回滚</span>` : `<span class="pill green">已部署，待发布确认</span>`)
+  const rb = v.rollbacks.length; if (rb) f.push(`<span class="pill" data-tip="${esc(v.rollbacks.map((r) => md(r.at) + ' ' + SN[r.from] + ' → ' + SN[r.to] + '：' + r.reason).join('；'))}">回退 ${rb} 次</span>`)
+  if (v.planned) f.push(`<span class="pill ${v.overdueDays ? 'red' : ''}" data-tip="${esc(v.replans.map((r) => md(r.at) + ' 由 ' + md(r.from) + ' 改到 ' + md(r.to) + '：' + r.reason).join('；') || '没有改过期')}">计划 ${md(v.planned)}${v.overdueDays ? ' · 已逾期 ' + v.overdueDays + ' 天' : ''}${v.replans.length ? ' · 改期 ' + v.replans.length + ' 次，延 ' + v.slipDays + ' 天' : ''}</span>`)
+  const top = DATA.inbox.find((i) => i.version === v.id)
+  const prompt = top?.prompt ?? `${v.id} 现在到哪一步了？下一步该做什么？`
+  return `<div class="vrow ${v.status}">
+    <div><button class="vid" data-ver="${v.id}">${v.id}</button> <span class="pill ${v.flow === 'hotfix' ? 'amber' : ''}">${FLOW[v.flow]}</span>
+      <div class="vgoal">${esc(v.goal)}</div></div>
+    <div class="track">${stations}</div>
+    <div class="facts">${f.join('')}</div>
+    <div class="srcline"><span>数据来自 <code>${esc(v.source.branch ?? '当前目录')}</code></span><span>最后更新 ${md(v.source.at)} ${v.source.at.slice(11, 16)}</span>${v.source.uncommitted ? `<span class="pill amber">${v.source.uncommitted} 条未提交</span>` : ''}${v.source.unpushed ? `<span class="pill amber">本机有 ${v.source.unpushed} 条未推送</span>` : ''}
+      ${v.progress ? `<span data-tip="${esc(v.progress.text)}">进展（${md(v.progress.at)}）：${esc(v.progress.text.length > 30 ? v.progress.text.slice(0, 30) + '…' : v.progress.text)}</span>` : ''}
+      <span style="margin-left:auto;display:flex;gap:8px"><button class="ghost" data-ver="${v.id}">详情</button>${copyBtn(prompt, '复制提示词')}</span></div>
+  </div>`
+}
+function renderHome() {
+  if (!DATA.initialized) {
+    const p1 = '我想开始一个新产品，从哪里开始？', p2 = '我有一个已经在做的产品，想纳入这个面板管理，帮我接入。'
+    $('#home').innerHTML = `<div class="card"><h2>项目还没有初始化</h2><p class="sub">还没有任何状态记录。把下面的一句话贴给你的 AI 助手，它会带你完成。</p>
+      <div class="item" style="grid-template-columns:1fr"><div class="t">新产品，从 0 开始</div><div class="p"><div class="say">${esc(p1)}</div>${copyBtn(p1)}</div></div>
+      <div class="item" style="grid-template-columns:1fr"><div class="t">已有产品，要接入</div><div class="p"><div class="say">${esc(p2)}</div>${copyBtn(p2)}</div></div></div>`
+    return
+  }
+  const o = DATA.online, r = o.running, lv = live().filter((v) => !state.mine || Object.values(v.owners).includes(state.me))
+  const act = live().filter((v) => v.status !== 'paused'), paused = live().filter((v) => v.status === 'paused')
+  const inbox = myInbox(), kinds = {}
+  for (const i of inbox) kinds[i.kind] = (kinds[i.kind] ?? 0) + 1
+  const next = act.filter((v) => v.planned)[0]
+  const left = next ? Math.round((T(next.planned) - T(DATA.today)) / 86400000) : null
+  const tile = (c, wm, v, k, d, cls) => `<div class="tile" style="--c:${c}"><div class="wm">${wm}</div><div class="v ${cls ?? ''}">${v}</div><div class="k">${k}</div><div class="d">${d}</div></div>`
+  const banner = conflictCount ? `<div class="banner"><b>!</b><span>有 ${conflictCount} 条记录互相矛盾或已损坏，没有生效。${esc((DATA.versions.find((v) => v.conflicts.length)?.conflicts[0].why ?? DATA.problems[0]?.why ?? '').slice(0, 70))}…</span></div>` : ''
+  const items = inbox.map((i) => `<div class="item"><span class="kind">${esc(i.kind)}</span><div class="t">${esc(i.title)}</div><span class="owner">${i.who.filter(Boolean).map(nm).join('、')}</span>
+    <div class="w">${esc(i.why)}</div><div class="p"><div class="say">${esc(i.prompt)}</div>${copyBtn(i.prompt)}</div></div>`).join('')
+  const recent = DATA.recent.map((x) => `<div class="rec"><span class="pill ${x.kind === '签收' ? 'green' : x.kind === '批准回滚' ? 'red' : 'blue'}">${x.kind}</span><div><b>${nm(x.who)}</b> · ${esc(x.what)}${x.mode && x.mode !== 'human' ? ' · ' + MODE[x.mode] : ''}</div>
+    <div class="q">「${esc(x.quote)}」</div><div class="m">${md(x.at)} ${x.at.slice(11, 16)} ${x.recordedBy ? ' · 由 ' + esc(x.recordedBy) + ' 的电脑写入' : ''}</div></div>`).join('')
+  const cfg = DATA.config.filter((c) => ['draft', 'todo', 'skipped'].includes(c.status) && c.level !== 'na')
+  const cfgRows = cfg.filter((c) => c.level !== 'L2').map((c) => `<div class="rec"><span class="pill ${c.status === 'draft' ? 'amber' : 'gray'}">${{ draft: '草稿待审', todo: '未填', skipped: '暂不填' }[c.status]}</span><div><b>${esc(c.name)}</b>${c.before && SN[c.before] ? ' · 进入「' + SN[c.before] + '」前要完成' : ''}</div><div class="q">${esc(c.note ?? '')}</div></div>`).join('')
+  const done = DATA.versions.filter((v) => v.status === 'released').map((v) => `<button class="ghost" data-ver="${v.id}">${v.id} · ${FLOW[v.flow]} · ${md(v.releasedAt)} 发布</button>`).join('')
+  $('#home').innerHTML = `${banner}
+    <div class="tiles">
+      ${tile('var(--blue)', '▲', r ? r.version : '暂无', '线上在跑', r ? esc(r.build) + ' · ' + (r.how === 'rollback' ? md(r.since) + ' 从 ' + r.from.join('、') + ' 回滚' : md(r.since) + ' 部署') + (o.lastReleased ? ' · 最后发布 ' + o.lastReleased.version : '') : '还没有生产部署记录', 'ver')}
+      ${tile('var(--green)', act.length, act.length, '个版本在研', (paused.length ? '另有 ' + paused.length + ' 个挂起 · ' : '') + act.map((v) => v.id).join('、'))}
+      ${tile('var(--coral)', '!', inbox.length, state.mine ? '件事等我处理' : '件事需要处理', Object.entries(kinds).map(([k, n]) => k + ' ' + n).join(' · ') || '没有待处理的事')}
+      ${tile('var(--amber)', '◷', next ? (left >= 0 ? left + '<small> 天</small>' : '逾期') : '未定', next ? '距 ' + next.id + ' 计划发布' : '没有计划发布日', next ? '计划 ' + md(next.planned) + (next.replans.length ? ' · 改期 ' + next.replans.length + ' 次，累计延 ' + next.slipDays + ' 天' : ' · 没有改过期') : '')}
+    </div>
+    <div class="card"><div class="head"><h2>版本轨道</h2><div class="seg"><button class="${state.mine ? '' : 'on'}" data-mine="0">全部</button><button class="${state.mine ? 'on' : ''}" data-mine="1">只看我的</button></div></div>
+      <p class="sub">每个未发布的版本一条轨道，按计划发布日排序。状态由各分支上的事件合并后推导，不依赖某一个分支。点版本号看详情。</p>
+      ${lv.map(trackRow).join('') || `<div class="empty">${live().length ? '没有和你有关的未发布版本。' : '还没有未发布的版本。对 AI 说「开始一个新版本」来立项。'}</div>`}
+      ${done ? `<div class="donev"><span class="sub" style="margin:6px 0 0">已发布：</span>${done}</div>` : ''}</div>
+    <div class="grid g2">
+      <div class="card"><h2>需要处理 <span class="hot">${inbox.length}</span></h2><p class="sub">${state.mine ? '只列出等 ' + nm(state.me) + ' 处理的。' : '全部成员的待办。'}复制提示词，贴给你的 AI 助手即可。</p>${items || '<div class="empty">没有待处理的事。</div>'}</div>
+      <div><div class="card"><h2>最近的签收与批准</h2><p class="sub">人做出的决定和原话，供抽查。如果有一条你没说过，就是有问题。</p>${recent || '<div class="empty">还没有签收或批准记录。</div>'}</div>
+        <div class="card"><h2>配置待办</h2><p class="sub">另有 ${cfg.filter((c) => c.level === 'L2').length} 项不阻断的可以以后再填</p>${cfgRows || '<div class="empty">没有会卡住阶段的配置待办。</div>'}</div></div>
+    </div>`
+  $('#nbadge').textContent = DATA.inbox.filter((i) => i.who.includes(state.me)).length || ''
+}
+
+/* ---------- 时间线 ---------- */
+function renderLine() {
+  if (!DATA.versions.length) { $('#line').innerHTML = '<div class="card"><h2>时间线</h2><div class="empty">还没有版本。</div></div>'; return }
+  const vs = [...DATA.versions].sort((a, b) => a.created < b.created ? -1 : 1)
+  const W = 1180, L = 86, R = 20, rowH = 46, top = 40, H = top + vs.length * rowH + 18
+  const t0 = Math.min(...vs.map((v) => T(v.created))) - 2 * 864e5, t1 = T(DATA.today) + 34 * 864e5
+  const x = (d) => L + (Math.min(Math.max(T(d), t0), t1) - t0) / (t1 - t0) * (W - L - R)
+  let g = ''
+  for (let t = t0; t <= t1; t += 864e5) { const d = new Date(t); if (d.getUTCDate() === 1) { const xx = L + (t - t0) / (t1 - t0) * (W - L - R); g += `<line x1="${xx}" x2="${xx}" y1="${top - 12}" y2="${H - 10}" stroke="var(--hair)"/><text x="${xx + 4}" y="${top - 16}">${d.getUTCMonth() + 1} 月</text>` } }
+  const tx = x(DATA.today); g += `<line x1="${tx}" x2="${tx}" y1="${top - 12}" y2="${H - 10}" stroke="var(--ink)" stroke-dasharray="3 3"/><text x="${tx - 4}" y="${top - 16}" text-anchor="end" style="fill:var(--ink);font-weight:700">今天 ${md(DATA.today)}</text>`
+  vs.forEach((v, i) => {
+    const y = top + i * rowH, by = y + 8, bh = 22
+    g += `<text class="vl" x="0" y="${by + 16}">${v.id}</text><line x1="${L}" x2="${W - R}" y1="${by + bh / 2}" y2="${by + bh / 2}" stroke="var(--hair)"/>`
+    for (const s of v.stages) for (const iv of s.intervals) {
+      const a = x(iv.from), w = Math.max(x(iv.to) - a - 2, 3), d = Math.max(0, Math.round((T(iv.to) - T(iv.from)) / 864e5))
+      g += `<rect x="${a}" y="${by}" width="${w}" height="${bh}" rx="4" fill="${SCOL[s.key]}" ${iv.open ? 'opacity=".72"' : ''} data-tip="${esc(v.id + ' ' + s.name + '：' + md(iv.from) + ' 至 ' + (iv.open ? '今天（进行中）' : md(iv.to)) + '，' + days(d))}"/>`
+      if (w > 30) g += `<text class="in ${s.key === 'test_design' ? 'dk' : ''}" x="${a + 6}" y="${by + 15}">${SHORT[s.key]}</text>`
+    }
+    for (const h of v.holds) { const a = x(h.from); g += `<rect x="${a}" y="${by - 3}" width="${Math.max(x(h.to) - a, 3)}" height="${bh + 6}" rx="4" fill="url(#hatch)" stroke="var(--muted)" stroke-width="1" data-tip="${esc(v.id + ' 挂起：' + md(h.from) + ' 至 ' + md(h.to))}"/>` }
+    for (const r of v.rollbacks) { const a = x(r.at); g += `<path d="M${a - 6} ${by - 3} h12 l-6 7z" fill="var(--amber)" stroke="#fff" data-tip="${esc(md(r.at) + ' 回退：' + SN[r.from] + ' → ' + SN[r.to] + '，' + r.reason)}"/>` }
+    for (const d of DATA.deploys.filter((d) => d.env === 'production' && d.versions.includes(v.id))) { const a = x(d.at), rb = d.action === 'rollback'; g += `<circle cx="${a}" cy="${by + bh + 6}" r="5.5" fill="${rb ? 'var(--crit)' : 'var(--ink)'}" stroke="#fff" stroke-width="2" data-tip="${esc(md(d.at) + ' ' + d.at.slice(11, 16) + (rb ? ' 生产回滚到 ' + d.target.version + '：' + (d.note ?? '') : ' 部署到生产 ' + d.build))}"/>` }
+    for (const r of v.replans) { const a = x(r.from); g += `<path d="M${a} ${by + 3} l7 8 -7 8 -7 -8z" fill="#fff" stroke="var(--muted)" stroke-dasharray="2 2" data-tip="${esc('原计划 ' + md(r.from) + '，' + md(r.at) + ' 改期：' + r.reason)}"/>` }
+    if (v.planned && !v.releasedAt) { const far = T(v.planned) > t1, a = x(v.planned); g += far ? `<text x="${W - R}" y="${by + 15}" text-anchor="end">计划 ${v.planned.slice(2)} →</text>` : `<path d="M${a} ${by + 2} l8 9 -8 9 -8 -9z" fill="#fff" stroke="var(--ink)" stroke-width="2" data-tip="${esc(v.id + ' 计划发布 ' + md(v.planned))}"/>` }
+  })
+  const legend = DATA.flows.standard.map((s) => `<span><i class="sw" style="background:${SCOL[s]};border-radius:3px"></i>${SN[s]}</span>`).join('')
+  $('#line').innerHTML = `<div class="card"><h2>时间线</h2><p class="sub">每个版本一行，一段色条是在某个阶段停留的一次。同一阶段出现两段，说明中间回退过。</p>
+    <div class="legend" style="margin-bottom:10px">${legend}</div>
+    <svg class="tl" viewBox="0 0 ${W} ${H}"><defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="rgba(255,255,255,.7)"/><line x1="0" y1="0" x2="0" y2="6" stroke="#8a93a8" stroke-width="2"/></pattern></defs>${g}</svg>
+    <div class="legend" style="margin-top:12px"><span>◆ 计划发布日</span><span>◇ 改期前的计划日</span><span><i class="sw" style="background:var(--ink)"></i>部署到生产</span><span><i class="sw" style="background:var(--crit)"></i>生产回滚</span><span style="color:#9a6400">▼ 阶段回退</span><span>▨ 挂起</span></div></div>
+    <div class="card"><h2>对照表</h2><p class="sub">时间线上的数字都在这里</p><table><thead><tr><th>版本</th><th>流程</th><th>状态</th>${DATA.flows.standard.map((s) => '<th class="r">' + SHORT[s] + '</th>').join('')}<th class="r">合计</th><th>计划 / 实际发布</th></tr></thead><tbody>
+    ${vs.map((v) => `<tr><td><b>${v.id}</b></td><td>${FLOW[v.flow]}</td><td>${STATUS[v.status]}</td>${DATA.flows.standard.map((k) => { const s = v.stages.find((x) => x.key === k); return '<td class="r num">' + (!s ? '—' : s.intervals.length ? (s.days || '&lt;1') : '') + '</td>' }).join('')}<td class="r num">${v.stages.reduce((n, s) => n + s.days, 0)}</td><td>${v.releasedAt ? md(v.releasedAt) + ' 已发布' : '计划 ' + (v.planned ?? '—')}</td></tr>`).join('')}</tbody></table><p class="sub" style="margin:10px 0 0">单位：天。「—」表示该流程没有这个阶段，空白表示还没开始。</p></div>`
+}
+
+/* ---------- 数据 ---------- */
+function renderData() {
+  const m = DATA.metrics
+  const kpi = (c, v, k, d) => `<div class="tile" style="--c:${c};min-height:120px;padding-top:20px"><div class="v" style="font-size:44px">${v}</div><div class="k" style="font-size:15px">${k}</div><div class="d">${d}</div></div>`
+  const vs = DATA.versions.filter((v) => v.stages.some((s) => s.days || s.intervals.length))
+  const tmax = Math.max(...vs.map((v) => v.stages.reduce((n, s) => n + s.days, 0)), 1)
+  const stack = vs.map((v) => { const tot = v.stages.reduce((n, s) => n + s.days, 0)
+    return `<span class="lab"><b>${v.id}</b> ${STATUS[v.status]}</span><div style="display:flex;align-items:center;gap:8px"><div class="sbar" style="width:${Math.max(tot / tmax * 82, 2)}%">${v.stages.filter((s) => s.days).map((s) => `<i style="flex:${s.days};background:${SCOL[s.key]}" data-tip="${v.id} ${s.name}：${s.days} 天${s.rollbacks ? '，回退 ' + s.rollbacks + ' 次' : ''}"></i>`).join('')}</div><em class="num" style="font-style:normal;font-size:12px;color:var(--ink-2)">${days(tot)}</em></div>` }).join('')
+  const wmax = Math.max(...m.bySigner.map((s) => s.avgHours), 1)
+  const waits = m.bySigner.map((s) => `<span class="lab">${esc(s.name)}</span><div class="bar"><i style="width:${s.avgHours / wmax * 62}%;background:var(--st1)" data-tip="${esc(s.name)}：签收 ${s.n} 次，平均等 ${dur(s.avgHours)}，最长 ${dur(s.maxHours)}"></i><em>平均 ${dur(s.avgHours)} · ${s.n} 次 · 最长 ${dur(s.maxHours)}</em></div>`).join('')
+  const dep = DATA.deploys.filter((d) => d.env === 'production').map((d) => `<tr><td>${md(d.at)} ${d.at.slice(11, 16)}</td><td><span class="pill ${d.action === 'rollback' ? 'red' : 'green'}">${d.action === 'rollback' ? '回滚' : '部署'}</span></td><td><b>${d.versions.join('、')}</b>${d.action === 'rollback' ? ' → ' + d.target.version : ''}</td><td><code>${esc(d.action === 'rollback' ? d.target.build : d.build)}</code></td><td>${nm(d.approvedBy)}「${esc(d.quote)}」</td><td>${esc([d.ref, d.note].filter(Boolean).join(' · '))}</td></tr>`).join('')
+  const rbs = m.rollbacks.map((r) => `<tr><td>${md(r.at)}</td><td><b>${r.version}</b></td><td>${SN[r.from]} → ${SN[r.to]}</td><td>${esc(r.reason)}${r.ref ? '（' + esc(r.ref) + '）' : ''}</td></tr>`).join('')
+  const rps = m.replans.map((r) => `<tr><td>${md(r.at)}</td><td><b>${r.version}</b></td><td>${md(r.from)} → ${md(r.to)}</td><td>${esc(r.reason)}</td></tr>`).join('')
+  const stuck = [...m.holds.map((h) => `<tr><td><b>${h.version}</b></td><td><span class="pill gray">挂起</span></td><td class="r num">${h.days}</td><td>${esc(h.reason)}；恢复条件：${esc(h.resumeWhen)}</td></tr>`), ...m.blocks.map((b) => `<tr><td><b>${b.version}</b></td><td><span class="pill red">阻塞</span></td><td class="r num">${b.days}</td><td>${esc(b.text)}（归 ${nm(b.owner)}）</td></tr>`)].join('')
+  $('#data').innerHTML = `
+    <div class="kpis">${kpi('var(--amber)', m.rollbacks.length, '次阶段回退', m.rollbacks.map((r) => r.version + ' ' + SN[r.from] + '→' + SN[r.to]).join('；') || '没有回退')}
+      ${kpi('var(--coral)', m.slipDays + '<small style="font-size:22px"> 天</small>', '改期累计延后', m.replans.length + ' 次改期')}
+      ${kpi('var(--blue)', m.avgWaitHours == null ? '—' : dur(m.avgWaitHours).replace(/ (.+)/, '<small style="font-size:22px"> $1</small>'), '平均等签收', m.avgWaitHours == null ? '还没有签收记录' : '从请求签收到签收')}
+      ${kpi('var(--green)', m.prodDeploys + '<small style="font-size:22px"> / ' + m.prodRollbacks + '</small>', '生产部署 / 回滚', '全部版本合计')}</div>
+    <div class="grid g2">
+      <div class="card"><h2>各版本在每个阶段花了多久</h2><p class="sub">一条是一个版本，色块是阶段，含回退后重做的时间，不含挂起。</p><div class="legend" style="margin-bottom:12px">${DATA.flows.standard.map((s) => `<span><i class="sw" style="background:${SCOL[s]};border-radius:3px"></i>${SHORT[s]}</span>`).join('')}</div><div class="bars">${stack || '<span class="empty">还没有进入阶段的版本。</span>'}</div></div>
+      <div class="card"><h2>等签收要多久</h2><p class="sub">按签收人。从 AI 说「做完了请签收」到这个人确认。</p><div class="bars">${waits || '<span class="empty">还没有签收记录。</span>'}</div></div>
+    </div>
+    <div class="grid g2e">
+      <div class="card"><h2>阶段回退</h2><p class="sub">退回去重做的记录</p><table><thead><tr><th>日期</th><th>版本</th><th>从哪退到哪</th><th>原因</th></tr></thead><tbody>${rbs || '<tr><td colspan="4" class="empty">没有</td></tr>'}</tbody></table></div>
+      <div class="card"><h2>改期</h2><p class="sub">计划发布日每改一次记一条</p><table><thead><tr><th>日期</th><th>版本</th><th>计划发布日</th><th>原因</th></tr></thead><tbody>${rps || '<tr><td colspan="4" class="empty">没有</td></tr>'}</tbody></table></div>
+    </div>
+    <div class="card"><h2>生产部署记录</h2><p class="sub">「线上在跑哪个版本」就是按这张表从上到下推出来的</p><table><thead><tr><th>时间</th><th>动作</th><th>版本</th><th>构建</th><th>谁批准的</th><th>说明</th></tr></thead><tbody>${dep || '<tr><td colspan="6" class="empty">还没有生产部署记录</td></tr>'}</tbody></table></div>
+    <div class="card"><h2>挂起与阻塞</h2><p class="sub">目前停着的</p><table><thead><tr><th>版本</th><th>类型</th><th class="r">已持续（天）</th><th>说明</th></tr></thead><tbody>${stuck || '<tr><td colspan="4" class="empty">没有</td></tr>'}</tbody></table></div>`
+}
+
+/* ---------- 版本详情 ---------- */
+const EV = { version_create: '新建版本', version_update: '修改版本信息', replan: '改期', onboard: '声明起点', stage_enter: '进入阶段', progress: '进展说明', block: '出现阻塞', unblock: '阻塞解除', gate_check: '门控核对', signoff_request: '请求签收', stage_complete: '签收', stage_rollback: '阶段回退', hold: '挂起', resume: '恢复', abandon: '放弃', downstream_check: '确认在途版本' }
+function evText(x) {
+  const r = x.raw
+  switch (r.type) {
+    case 'version_create': return '目标：' + r.goal
+    case 'replan': return md(r.from) + ' → ' + md(r.to) + '：' + r.reason
+    case 'stage_enter': return SN[r.stage]
+    case 'gate_check': return SN[r.stage] + '，' + (r.result === 'pass' ? '通过' : '未通过') + '（' + r.checks.length + ' 项）'
+    case 'signoff_request': return SN[r.stage] + '，请 ' + r.to.map(nm).join('、') + ' 签收'
+    case 'stage_complete': return SN[r.stage] + '，' + nm(r.signoff.by) + '：「' + (r.signoff.quote ?? r.signoff.summary) + '」' + (r.signoff.mode !== 'human' ? '（' + MODE[r.signoff.mode] + '，评审记录 ' + r.signoff.review + '）' : '')
+    case 'stage_rollback': return SN[r.from] + ' → ' + SN[r.to] + '：' + r.reason + (r.ref ? '（' + r.ref + '）' : '')
+    case 'progress': case 'block': return r.text
+    case 'hold': return r.reason + '；恢复条件：' + r.resume_when
+    case 'downstream_check': return r.target + '：' + ({ merged: '已合入', partial: '部分合入', not_needed: '不需要', deferred: '暂缓' }[r.result]) + '，' + r.evidence
+    default: return ''
+  }
+}
+function renderVer() {
+  const v = DATA.versions.find((x) => x.id === state.ver) ?? DATA.versions[0]
+  if (!v) { $('#ver').innerHTML = '<button class="back" data-v="home">← 返回总览</button><div class="card"><div class="empty">还没有版本。</div></div>'; return }
+  const ST = { done: ['已签收', 'green'], open: ['进行中', 'blue'], pending: ['未开始', 'gray'], reopened: ['已回退，待重签', 'amber'], untracked: ['未跟踪', 'gray'] }
+  const rows = v.stages.map((s) => `<tr><td><b>${s.name}</b></td><td><span class="pill ${ST[s.state][1]}">${ST[s.state][0]}</span></td><td>${s.intervals.map((iv) => md(iv.from) + ' 至 ' + (iv.open ? '今' : md(iv.to))).join('<br>') || '—'}</td><td class="r num">${s.intervals.length ? dd(s) : ''}</td><td>${s.signoff ? '<b>' + nm(s.signoff.by) + '</b> ' + md(s.signoff.at) + '：「' + esc(s.signoff.quote) + '」' + (s.signoff.mode !== 'human' ? ' <span class="pill">' + MODE[s.signoff.mode] + '</span>' : '') : s.rollbacks ? '回退 ' + s.rollbacks + ' 次' : ''}</td></tr>`).join('')
+  const chk = v.check ? v.check.checks.map((c) => `<div class="chk ${c.ok ? 'ok' : 'no'}"><span class="ic">${c.ok ? '✓' : '✕'}</span><span class="tx">${esc(c.text)}<span class="src">${c.source === 'script' ? '脚本核对' : '执行时记录'}</span></span><span class="ev">${esc(c.evidence)}</span></div>`).join('') : '<div class="empty">当前阶段还没有做过门控核对。</div>'
+  const conf = v.conflicts.map((c) => `<div class="item" style="grid-template-columns:auto 1fr"><span class="kind">没有生效</span><div class="t">${md(c.at)} · ${EV[c.type]} · ${nm(c.by)} · 来自 <code>${esc(c.branch)}</code></div><div class="w" style="grid-column:1/3">${esc(c.why)}</div></div>`).join('')
+  const evs = [...v.events].reverse().map((x) => `<tr class="evt ${x.voided ? 'off' : x.conflict ? 'bad' : ''}"><td style="white-space:nowrap">${md(x.at)} ${x.at.slice(11, 16)}</td><td style="white-space:nowrap"><b>${EV[x.type] ?? x.type}</b>${x.conflict ? '（没有生效）' : ''}</td><td>${esc(evText(x))}</td><td style="white-space:nowrap">${nm(x.by)}</td><td style="white-space:nowrap"><code>${esc(x.branch ?? '当前目录')}</code>${x.state === 'unpushed' ? ' <span class="pill amber">未推送</span>' : x.state === 'uncommitted' ? ' <span class="pill amber">未提交</span>' : ''}</td></tr>`).join('')
+  $('#ver').innerHTML = `<button class="back" data-v="home">← 返回总览</button>
+    <div class="card"><div class="head"><h2><span class="num" style="font-size:30px">${v.id}</span> <span class="pill">${FLOW[v.flow]}</span> <span class="pill ${v.status === 'released' ? 'green' : v.status === 'paused' ? 'gray' : 'blue'}">${STATUS[v.status]}</span></h2>
+      ${copyBtn(`${v.id} 现在到哪一步了？下一步该做什么？`, '复制提示词')}</div>
+      <p class="sub" style="font-size:14px;color:var(--ink-2)">${esc(v.goal)}</p>
+      <table><tbody><tr><td>负责人</td><td>产品 <b>${nm(v.owners.product)}</b>　研发 <b>${nm(v.owners.engineering)}</b>　测试 <b>${nm(v.owners.testing)}</b>${v.owners.ops ? '　运维 <b>' + nm(v.owners.ops) + '</b>' : ''}</td></tr>
+      <tr><td>分支</td><td><code>${esc(v.branch)}</code>　基于 ${v.base ?? '—'}${v.fixes.length ? '　修复 ' + v.fixes.join('、') : ''}</td></tr>
+      <tr><td>计划发布</td><td>${v.planned ?? '—'}${v.replans.length ? '（改期 ' + v.replans.length + ' 次，累计延 ' + v.slipDays + ' 天）' : ''}${v.releasedAt ? '　实际发布 ' + v.releasedAt.slice(0, 10) : ''}</td></tr>
+      ${v.downstream.length ? '<tr><td>在途版本确认</td><td>' + v.downstream.map((d) => d.target + '：' + esc(d.evidence) + '（' + nm(d.by) + ' 确认）').join('<br>') + '</td></tr>' : ''}</tbody></table></div>
+    ${conf ? `<div class="card"><h2>矛盾的记录</h2><p class="sub">这些事件没有生效。需要人决定怎么处理，脚本不会自动裁决。</p>${conf}</div>` : ''}
+    <div class="grid g2"><div class="card"><h2>阶段</h2><p class="sub">一个阶段有两段时间，说明中间回退过</p><table><thead><tr><th>阶段</th><th>状态</th><th>起止</th><th class="r">时长</th><th>签收</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="card"><h2>当前阶段的门控核对</h2><p class="sub">${v.check ? md(v.check.at) + ' 核对' : v.current ? v.current.name : '没有进行中的阶段'}</p>${chk}</div></div>
+    <div class="card"><h2>事件记录</h2><p class="sub">共 ${v.events.length} 条，最新的在上面。每条是一个文件，写入后不改。</p><table><thead><tr><th>时间</th><th>事件</th><th>内容</th><th>操作人</th><th>来自分支</th></tr></thead><tbody>${evs}</tbody></table></div>`
+}
+
+/* ---------- 帮助手册 ---------- */
+function hl(text) {
+  const t = esc(text); if (!state.q) return t
+  const q = esc(state.q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return t.replace(new RegExp(q, 'gi'), (m) => `<mark>${m}</mark>`)
+}
+function renderBook() {
+  if (!$('#q')) $('#book').innerHTML = '<input class="search" id="q" placeholder="搜索场景或关键词，例如：改需求、bug、发布、回滚"><div id="bookres"></div>'
+  const groups = ['全部', ...new Set(DATA.handbook.map((h) => h.group))]
+  const q = state.q.toLowerCase()
+  const list = DATA.handbook.filter((h) => (state.group === '全部' || h.group === state.group) && (!q || (h.title + h.prompt + h.group).toLowerCase().includes(q)))
+  const cards = list.map((h) => `<div class="hcard"><div class="top"><div><div class="ti">${hl(h.title)}</div><div class="gp">${esc(h.group)}</div></div>${copyBtn(h.prompt)}</div><div class="say">${hl(h.prompt)}</div></div>`).join('')
+  const faq = DATA.faq.filter((f) => !q || (f.q + f.a).toLowerCase().includes(q)).map((f) => `<details><summary>${hl(f.q)}</summary><p>${hl(f.a)}</p></details>`).join('')
+  $('#bookres').innerHTML = `<div class="chips">${groups.map((g) => `<button class="chip ${g === state.group ? 'on' : ''}" data-group="${esc(g)}">${esc(g)}</button>`).join('')}</div>
+    <p class="sub" style="margin:8px 0 0">找到 ${list.length} 条。方括号里的内容换成你的实际情况。</p>
+    <div class="hb">${cards || '<div class="empty">没有匹配的场景，换个词试试。</div>'}</div>
+    <div class="card" style="margin-top:22px"><h2>常见问题</h2><p class="sub">来自仓库 README</p>${faq || '<div class="empty">没有匹配的问题。</div>'}</div>`
+}
+
+/* ---------- 设置 ---------- */
+function renderConf() {
+  const s = DATA.settings
+  const gates = s.gates.map((g) => `<tr><td>「${g.name}」的签收</td><td><b>${MODE[g.mode]}</b>${g.fixed ? ' <span class="pill">固定由人签，不可改</span>' : ''}</td></tr>`).join('')
+  const hist = s.history.map((h) => `<div class="rec"><span class="pill blue">${md(h.at)}</span><div><b>${nm(h.by)}</b> 把「${SN[h.key.slice(5)] ?? h.key}」的签收从「${MODE[h.from] ?? h.from}」改为「${MODE[h.value] ?? h.value}」</div><div class="q">「${esc(h.quote)}」</div></div>`).join('')
+  const DOM = { product: '产品', engineering: '研发', testing: '测试', ops: '运维' }
+  const members = DATA.members.map((m) => `<tr><td><b>${esc(m.name)}</b></td><td>${esc(m.role)}</td><td>${m.domains.map((d) => DOM[d]).join('、')}</td><td>${m.active ? '在项目中' : '已离开'}</td></tr>`).join('')
+  const CS = { todo: '未填', skipped: '暂不填', draft: '草稿待审', confirmed: '已确认', na: '不适用' }
+  const cfg = DATA.config.map((c) => `<tr><td class="num">${c.no}</td><td>${esc(c.name)}</td><td>${c.level === 'na' ? '—' : c.level}${SN[c.before] ? ' · ' + SN[c.before] + '前' : c.before === 'first_upload' ? ' · 首次上传文件前' : ''}</td><td><span class="pill ${{ confirmed: 'green', draft: 'amber' }[c.status] ?? 'gray'}">${CS[c.status]}</span></td><td>${c.status === 'confirmed' ? nm(c.by) + ' ' + md(c.at) + '「' + esc(c.quote) + '」' : esc(c.note ?? '')}</td></tr>`).join('')
+  const MN = { i18n: '多语言', planning: '产品规划', smoke: '冒烟测试' }, MS = { on: '已启用', off: '未启用', declined: '明确不启用' }
+  const setPrompt = '把「技术方案」的签收方式改成「评审后人工签收」。'
+  $('#conf').innerHTML = `<div class="grid g2e">
+      <div class="card"><h2>每个阶段由谁签收</h2><p class="sub">项目级设置，对所有人、所有版本生效。停滞基准：常规 ${s.stall.standard} 天，热修复 ${s.stall.hotfix} 天。</p>
+        <table><thead><tr><th>关卡</th><th>放行方式</th></tr></thead><tbody>${gates}</tbody></table>
+        <h3 style="margin-top:18px">修改记录</h3>${hist || '<div class="empty">没有改过。</div>'}
+        <p class="sub" style="margin:14px 0 6px">这个页面只读。要改设置，对 AI 说：</p>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px"><div class="say">${esc(setPrompt)}</div>${copyBtn(setPrompt)}</div></div>
+      <div><div class="card"><h2>成员</h2><p class="sub">项目级，入库，签收时用来判断谁有资格确认</p><table><thead><tr><th>姓名</th><th>角色</th><th>负责</th><th>状态</th></tr></thead><tbody>${members}</tbody></table></div>
+        <div class="card"><h2>我的档案</h2><p class="sub">只在这台电脑上、不入库的个人档案还没有启用。右上角选的身份只保存在这个浏览器里，用来过滤「只看我的」。</p></div></div></div>
+    <div class="card"><h2>配置清单</h2><p class="sub">可选模块：${DATA.modules.map((m) => MN[m.id] + ' ' + MS[m.status]).join('　')}</p>
+      <table><thead><tr><th>#</th><th>配置项</th><th>等级</th><th>状态</th><th>记录</th></tr></thead><tbody>${cfg}</tbody></table></div>`
+}
+
+/* ---------- wiring ---------- */
+const views = { home: renderHome, line: renderLine, data: renderData, book: renderBook, conf: renderConf, ver: renderVer }
+function show(v, ver) {
+  if (ver) state.ver = ver
+  document.querySelectorAll('.tab').forEach((t) => t.setAttribute('aria-selected', t.dataset.v === v))
+  document.querySelectorAll('.view').forEach((s) => s.classList.toggle('on', s.id === v))
+  views[v](); scrollTo(0, 0)
+  try { history.replaceState(null, '', '#/' + v + (v === 'ver' ? '/' + state.ver : '')) } catch {}
+}
+$('#pname').textContent = DATA.product.name
+$('#logo').textContent = DATA.product.name[0]
+$('#foot').textContent = `由事件记录重放生成 · ${DATA.generatedAt.slice(0, 16).replace('T', ' ')} · 页面只读，不联网、不起服务；数据更新后重新运行 node tools/panel.mjs render` + (DATA.gitless ? ' · 这里不是 git 仓库，只读了当前目录' : ' · 已合并所有分支上的记录')
+$('#me').innerHTML = DATA.members.map((m) => `<option value="${m.id}">${esc(m.name)} · ${esc(m.role)}</option>`).join('')
+if (state.me) { $('#me').value = state.me; $('#avatar').textContent = member(state.me).name[0] } else document.querySelector('.who').style.display = 'none'
+$('#me').onchange = (e) => { state.me = e.target.value; try { localStorage.setItem('panel.me', state.me) } catch {}; $('#avatar').textContent = member(state.me).name[0]; renderHome() }
+
+document.addEventListener('click', async (e) => {
+  const t = e.target.closest('[data-v],[data-copy],[data-ver],[data-mine],[data-group]'); if (!t) return
+  if (t.dataset.v) show(t.dataset.v)
+  else if (t.dataset.ver) show('ver', t.dataset.ver)
+  else if (t.dataset.mine) { state.mine = t.dataset.mine === '1'; renderHome() }
+  else if (t.dataset.group) { state.group = t.dataset.group; renderBook() }
+  else if (t.dataset.copy) {
+    const text = prompts[+t.dataset.copy], old = t.textContent
+    try { await navigator.clipboard.writeText(text) } catch {
+      const ta = Object.assign(document.createElement('textarea'), { value: text }); document.body.append(ta); ta.select(); document.execCommand('copy'); ta.remove()
+    }
+    t.textContent = '已复制'; t.classList.add('ok'); setTimeout(() => { t.textContent = old; t.classList.remove('ok') }, 1400)
+  }
+})
+document.addEventListener('input', (e) => { if (e.target.id === 'q') { state.q = e.target.value.trim(); renderBook() } })
+const tip = $('#tip')
+document.addEventListener('mousemove', (e) => {
+  const t = e.target.closest('[data-tip]')
+  if (!t) { tip.style.opacity = 0; return }
+  tip.textContent = t.dataset.tip; tip.style.opacity = 1
+  tip.style.left = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = e.clientY + 14 + 'px'
+})
+{
+  const [v, ver] = location.hash.slice(2).split('/')
+  show(views[v] ? v : 'home', ver)
+}
+</script>
+</body>
+</html>

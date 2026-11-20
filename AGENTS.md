@@ -210,6 +210,7 @@
 | 项目与版本的状态（阶段、签收、负责人、配置项、设置、部署） | `state/events/`、`versions/{ver}/state/events/` | 只由 `node tools/panel.mjs` 写入，一件事一个文件，写入后不改（[agents/state.md](./agents/state.md)） |
 | 配置项的定义和填写说明 | `state/defs/config-items.json`、`SETUP.md` 卡片 | 状态不写在这两处 |
 | 面板状态工具 | `tools/` | 命令入口 `tools/panel.mjs` |
+| 驾驶舱（给人看的只读页面） | 根目录 `cockpit.html` | `node tools/panel.mjs render` 生成，不入库 |
 | 规范 | `standards/` | 导航和状态见 `standards/README.md`，新增或修改规范后同步更新 |
 | 运维与发布画像 | `engineering/docs/ops-profile.md` | 构建、部署、回滚、生产验证的实际做法，探索生成（SOP-09.5）|
 | 运维 / 基础设施变更记录 | `engineering/docs/ops-changes.md` | 跨版本，SOP-13；完成后同步画像 |

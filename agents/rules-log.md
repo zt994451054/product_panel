@@ -32,5 +32,6 @@
 - SOP-06：改前先在主线登记占号、只有一个主线版本；改后多个版本地位相同，命令跨分支检查版本号
 - SOP-11、`agents/baselines.md`：热修复是独立版本（五个阶段）；被修的已发布版本不改任何文档，修复版本只记在生产缺陷记录（解决了原先两条规则互相矛盾）
 - SOP-00、00.6、01、03、05、08、09、09.5、12、`agents/collaboration.md`：读状态、记进展、确认配置项、记部署改为用命令；状态变更写完就提交并推送，删分支前先检查
+- 新增只读驾驶舱：`node tools/panel.mjs render` 生成根目录的 `cockpit.html`（不入库），给人看；AI 读状态仍用 `status`
 - 删除 `versions/CURRENT.md`、`versions/README.md` 的进度矩阵、版本 README 的阶段进度表和回灌记录、`SETUP.md` 的状态列
 **影响**：进行中的版本需要把现有阶段和签收用命令补记一遍（`version new`、`version onboard` 或逐阶段带 `--at` 补记）；其他分支上手写的状态表合入后不再有效
