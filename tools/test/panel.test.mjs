@@ -194,7 +194,7 @@ test('production: running version follows deploys and rollbacks, not release dat
   dep('2026-10-06T08:00', '--action', 'rollback', '--versions', 'v1.0.0', '--target-version', 'v0.9.0', '--target-build', 'b0', '--ref', 'BUG-7')
   const o = r.state().online
   assert.equal(o.running.version, 'v0.9.0'); assert.equal(o.running.how, 'rollback'); assert.equal(o.lastReleased, null)
-  assert.match(r.ok('status'), /v0\.9\.0 b0（10-06 从 v1\.0\.0 回滚）/)
+  assert.match(r.ok('status'), /v0\.9\.0 b0（10-06 从 v1\.0\.0 回滚，⚠ 线上版本标识还没核对）/)
 })
 
 test('void removes an event from the replay; time order is protected', () => {
@@ -351,9 +351,9 @@ test('rolling back a first release leaves production without a version', () => {
   assert.equal(r.state().online.running.version, null)
   // A release recorded after the fact needs no approver and is shown for what it is.
   r.ok('deploy', '--env', 'production', '--action', 'exception', '--versions', 'v1.0.0', '--by', 'ai', '--at', '2026-10-07T08:00')
-  assert.match(r.ok('status'), /线上在跑：v1\.0\.0（10-07 例外上线，没走完门控，待补齐）/)
+  assert.match(r.ok('status'), /线上在跑：v1\.0\.0（10-07 例外上线，没走完门控，待补齐，⚠ 线上版本标识还没核对）/)
   r.ok('deploy', '--env', 'production', '--action', 'rollback', '--versions', 'v1.0.0', '--approved-by', 'xiaolin', '--quote', '好', '--by', 'azhe', '--at', '2026-10-08T08:00')
-  assert.match(r.ok('status'), /线上在跑：没有版本（10-08 从 v1\.0\.0 回滚）/)
+  assert.match(r.ok('status'), /线上在跑：没有版本（10-08 从 v1\.0\.0 回滚，⚠ 线上版本标识还没核对）/)
   r.ok('render')
 })
 
@@ -474,4 +474,59 @@ test('the same ledger number registered twice on two branches keeps both files a
   r.ok('event', 'void', '--target', v.conflicts[0].id, '--reason', '撞号，重新登记', '--by', 'ai')
   assert.match(open('笔记本上登记的'), /BUG-azhe-002/)
   assert.match(r.ok('check'), /检查通过/)
+})
+
+test('a gate condition taken on someone\'s word needs that person\'s own sentence, one sentence per condition', () => {
+  const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00'); pass(r, 'v1.0.0', 'requirements', 1); pass(r, 'v1.0.0', 'design', 2)
+  const V = ['--version', 'v1.0.0', '--stage', 'tech'], at = (h) => `2026-10-03T${h}:00`
+  r.ok('stage', 'enter', ...V, '--by', 'ai', '--at', at('09'))
+  r.no(/按口述记通过的，要写明谁说的/, 'stage', 'check', ...V, '--check', '接口评审过了|ok|小林说评审过了|told', '--by', 'ai')
+  r.no(/不是在册成员/, 'stage', 'check', ...V, '--check', '接口评审过了|ok|说评审过了|told|ai|评审过了', '--by', 'ai')
+  r.no(/被用作不止一条门控条件的依据/, 'stage', 'check', ...V, '--check', '接口评审过了|ok|口述|told|azhe|都弄好了', '--check', '压测做过了|ok|口述|told|azhe|都弄好了', '--by', 'ai')
+  // Not verified and nobody vouched for it: it can still be recorded, as not met.
+  assert.match(r.ok('stage', 'check', ...V, '--check', '接口评审过了|no|只听说评审过，没有记录|told', '--by', 'ai', '--at', at('10')), /门控未通过/)
+  const out = r.ok('stage', 'check', ...V, '--check', '方案文档已写完|ok|tech-solution.md 已读|manual', '--check', '接口评审过了|ok|没有评审记录|told|azhe|接口上周和前端一起评审过了', '--by', 'ai', '--at', at('11'))
+  assert.match(out, /其中 1 条是按口述记的，没有核实：接口评审过了/)
+  assert.match(r.ok('status'), /门控核对：10-03 通过（其中 1 条按口述，没有核实）/)
+  assert.equal(r.state().versions[0].current.check.checks[1].told.by, 'azhe')
+})
+
+test('one sentence cannot be recorded as the quote for two different decisions', () => {
+  const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00')
+  const V = ['--version', 'v1.0.0'], said = '测试已经签收了，开始发布吧'
+  r.ok('version', 'update', ...V, '--goal', '新目标', '--quote', said, '--by', 'xiaolin', '--at', '2026-10-02T09:00')
+  r.no(/这句话已经记作另一件事的原话/, 'deploy', '--env', 'production', '--action', 'deploy', '--versions', 'v1.0.0', '--build', 'b1', '--approved-by', 'xiaolin', '--quote', said, '--by', 'ai')
+  // The same kind of decision may share a sentence (confirming several named items at once), and short answers repeat.
+  const a = r.ok('item', 'add', ...V, '--name', '甲', '--priority', 'P0', '--by', 'ai').match(/编号：(\S+?)（/)[1], b = r.ok('item', 'add', ...V, '--name', '乙', '--priority', 'P1', '--by', 'ai').match(/编号：(\S+?)（/)[1]
+  for (const id of [a, b]) r.ok('item', 'confirm', ...V, '--item', id, '--quote', '甲和乙这两条都确认，照这样做', '--by', 'xiaolin')
+  r.ok('deploy', '--env', 'production', '--action', 'deploy', '--versions', 'v1.0.0', '--build', 'b1', '--approved-by', 'xiaolin', '--quote', '可以', '--by', 'ai')
+  // A voided record frees its sentence: the corrected record may quote it again.
+  const id = r.state().versions[0].events.find((e) => e.type === 'version_update').id
+  r.ok('event', 'void', '--target', id, '--reason', '记错了', '--by', 'ai')
+  r.ok('version', 'hold', ...V, '--reason', '等资源', '--resume-when', '人到位', '--quote', said, '--by', 'xiaolin')
+})
+
+test('a production deployment stays flagged until what is actually running has been looked at', () => {
+  const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00')
+  const D = ['deploy', '--env', 'production', '--versions', 'v1.0.0']
+  r.no(/还没有生产部署记录/, ...D, '--action', 'verify', '--checked', '看了', '--by', 'ai')
+  assert.match(r.ok(...D, '--action', 'deploy', '--build', 'b7', '--approved-by', 'xiaolin', '--quote', '上吧', '--by', 'ai', '--at', '2026-10-05T10:00'), /线上版本标识还没核对/)
+  assert.match(r.ok('status'), /v1\.0\.0 b7（10-05 部署，⚠ 线上版本标识还没核对）/)
+  r.no(/缺少 --checked/, ...D, '--action', 'verify', '--by', 'ai')
+  r.ok(...D, '--action', 'verify', '--checked', '访问 /version 返回 b7', '--by', 'ai', '--at', '2026-10-05T11:00')
+  assert.match(r.ok('status'), /v1\.0\.0 b7（10-05 部署）/)
+  assert.equal(r.state().online.running.checked, '访问 /version 返回 b7')
+  // Checked at the moment of deploying: nothing left open.
+  assert.doesNotMatch(r.ok(...D, '--action', 'deploy', '--build', 'b8', '--checked', '页脚显示 b8', '--approved-by', 'xiaolin', '--quote', '再上', '--by', 'ai', '--at', '2026-10-06T10:00'), /还没核对/)
+})
+
+test('changing a requirement item that nobody has confirmed leaves it a draft', () => {
+  const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00')
+  const V = ['--version', 'v1.0.0'], id = r.ok('item', 'add', ...V, '--name', '预约取消', '--priority', 'P0', '--by', 'ai').match(/编号：(\S+?)（/)[1]
+  r.ok('item', 'change', ...V, '--item', id, '--ref', 'CHANGE-xiaolin-001', '--by', 'ai')
+  let it = r.state().versions[0].items[0]
+  assert.equal(it.status, 'draft'); assert.equal(it.ref, 'CHANGE-xiaolin-001')
+  r.ok('item', 'confirm', ...V, '--item', id, '--quote', '确认', '--by', 'xiaolin')
+  r.ok('item', 'change', ...V, '--item', id, '--ref', 'CHANGE-xiaolin-002', '--by', 'ai')
+  assert.equal(r.state().versions[0].items[0].status, 'changed')
 })

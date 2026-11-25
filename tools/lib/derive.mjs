@@ -148,7 +148,9 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
         const it = v.items.get(e.item)
         if (!it) { bad(`需求条目 ${e.item} 不存在`); continue }
         if (it.status === 'dropped') { bad(`需求条目 ${e.item} 已经移出本版本，不能再改状态`); continue }
-        it.status = e.status; it.ref = e.ref ?? it.ref
+        // A draft that gets reworded is still a draft: nobody has confirmed it yet, and the change must not hide that.
+        if (!(e.status === 'changed' && it.status === 'draft')) it.status = e.status
+        it.ref = e.ref ?? it.ref
         if (e.status === 'confirmed') it.confirmed = { by: e.by, quote: e.quote, at: e.at }
         break
       }
@@ -225,7 +227,7 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
       downstream: v.downstream.map((d) => ({ target: d.target, result: d.result, evidence: d.evidence, by: d.confirmed?.by ?? null })),
       items: [...v.items.values()],
       defects: [...v.defects.values()].map((d) => ({ ...d, days: dayDiff(d.at, d.closedAt ?? now), hours: Math.round(hours(d.at, d.closedAt ?? now)) })),
-      createId: v.create.id, deployedToProduction: project.deploys.some((d) => d.env === 'production' && d.action !== 'rollback' && d.versions.includes(v.id)),
+      createId: v.create.id, deployedToProduction: project.deploys.some((d) => d.env === 'production' && !['rollback', 'verify'].includes(d.action) && d.versions.includes(v.id)),
       conflicts: v.conflicts.map((c) => ({ id: c.e.id, type: c.e.type, at: c.e.at, by: c.e.by, why: c.why, branch: c.e.src?.branch ?? null, here: !!c.e.src?.here })),
       duplicates: v.duplicates.map((d) => ({ id: d.e.id, type: d.e.type, at: d.e.at, why: d.why, branch: d.e.src?.branch ?? null })),
       source: { branch: last.src?.branch ?? null, at: last.at, unpushed: effective.filter((x) => x.e.src?.state === 'unpushed').length, uncommitted: effective.filter((x) => x.e.src?.state === 'uncommitted').length },
@@ -240,12 +242,14 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
   /* ---------- production ---------- */
   let running = null
   for (const d of project.deploys.filter((d) => d.env === 'production')) {
+    // A later look at what is actually running settles the open question on the deployment before it.
+    if (d.action === 'verify') { if (running) { running.checked = d.checked; running.build ??= d.build ?? null } continue }
     running = d.action === 'rollback'
-      ? { version: d.target?.version ?? null, build: d.target?.build ?? null, since: d.at, how: 'rollback', from: d.versions, ref: d.ref ?? null, note: d.note ?? null }
-      : { version: d.versions.at(-1), build: d.build ?? null, since: d.at, how: d.action }
+      ? { version: d.target?.version ?? null, build: d.target?.build ?? null, since: d.at, how: 'rollback', from: d.versions, ref: d.ref ?? null, note: d.note ?? null, checked: d.checked ?? null }
+      : { version: d.versions.at(-1), build: d.build ?? null, since: d.at, how: d.action, checked: d.checked ?? null }
   }
   const rel = out.filter((v) => v.releasedAt).sort((a, b) => Date.parse(b.releasedAt) - Date.parse(a.releasedAt))[0]
-  const deployedNotReleased = out.filter((v) => !v.releasedAt && project.deploys.some((d) => d.env === 'production' && d.action !== 'rollback' && d.versions.includes(v.id))).map((v) => v.id)
+  const deployedNotReleased = out.filter((v) => !v.releasedAt && project.deploys.some((d) => d.env === 'production' && !['rollback', 'verify'].includes(d.action) && d.versions.includes(v.id))).map((v) => v.id)
 
   /* ---------- project-level lists ---------- */
   const type = project.info?.product_type ?? 'new'

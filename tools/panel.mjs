@@ -82,6 +82,9 @@ function autoChecks(v, stage) {
   return out.map((x, i) => ({ id: `${stage}.auto${i + 1}`, ...x, source: 'script' }))
 }
 
+/** Every sentence an event quotes from a person: sign-offs, approvals, confirmations, gate conditions taken on someone's word. */
+const quotesOf = (e) => [e.quote, e.signoff?.quote, e.approved?.quote, e.confirmed?.quote, ...(e.checks ?? []).map((x) => x.told?.quote)].filter(Boolean).map((q) => String(q).trim())
+
 /** Validate against the replay rules by trying the event out, then write it. */
 function commit(c, scope, fields, f, { byMember = false, freeBy = false } = {}) {
   let by = need(f, 'by', '操作人：成员标识；AI 按流程自己记录的写 ai；当前操作者写 me')
@@ -103,6 +106,13 @@ function commit(c, scope, fields, f, { byMember = false, freeBy = false } = {}) 
   // other team's version. The clash has to be settled first.
   const lost = fields.type !== 'void' && owner?.conflicts.find((x) => x.type === 'version_create' && x.here)
   if (lost) fail(`版本号 ${scope} 撞号了：生效的是目标为「${owner.goal}」的那个，这边创建的那个（事件 ${lost.id}）没有生效。现在写入会记到对方的版本里。先请使用者决定：这边的版本换哪个号，然后运行 event void --target ${lost.id} 作废这边的创建记录，再用新版本号重新建`)
+  // One sentence answers one thing. A sentence already recorded for a different kind of decision was said about that,
+  // not about this; very short answers ("同意") are too common to tell apart and are left alone.
+  const gone = new Set(c.all.events.filter((e) => e.type === 'void').map((e) => e.target))
+  for (const q of quotesOf(fields).filter((q) => q.length >= 10)) {
+    const used = c.all.events.find((e) => e.type !== fields.type && !gone.has(e.id) && quotesOf(e).includes(q))
+    if (used) fail(`「${q}」这句话已经记作另一件事的原话（${used.at.slice(0, 10)} 的 ${used.type}）。一句话只对应一件事：针对现在这件事重新问使用者，用他这次的回答；他没有回答就不记`)
+  }
   const event = { ...fields, ...(owner && fields.type !== 'version_create' ? { create: owner.createId } : {}), at, by, ...(f.backfill ? { backfill: f.backfill } : {}) }
   const trial = { ...event, id: 'trial', scope, recorded_at: nowIso, recorded_by: '-', ...(scope === 'project' ? {} : { version: scope }), src: { branch: '本次写入', state: 'uncommitted' } }
   const events = [...c.all.events, trial].sort((a, b) => Date.parse(a.at) - Date.parse(b.at) || (a.id === 'trial' ? 1 : b.id === 'trial' ? -1 : 0))
@@ -207,14 +217,23 @@ const commands = {
   'stage check'(c, f) {
     const v = versionOf(c, f), stage = oneOf(f.stage, FLOWS[v.flow], '阶段')
     const checks = [].concat(f.check ?? []).map((raw, i) => {
-      const [text, ok, evidence, source] = String(raw).split('|').map((x) => x.trim())
-      if (!text || !['ok', 'no'].includes(ok) || !evidence) fail(`第 ${i + 1} 条 --check 格式应为 "条件|ok 或 no|依据|script 或 manual"`)
-      return { id: `${stage}.${i + 1}`, text, ok: ok === 'ok', evidence, source: oneOf(source ?? 'manual', ['script', 'manual'], '核对方式') }
+      const [text, ok, evidence, source, who, quote] = String(raw).split('|').map((x) => x.trim())
+      if (!text || !['ok', 'no'].includes(ok) || !evidence) fail(`第 ${i + 1} 条 --check 格式应为 "${CHECK_FORMAT}"`)
+      const check = { id: `${stage}.${i + 1}`, text, ok: ok === 'ok', evidence, source: oneOf(source || 'manual', ['script', 'manual', 'told'], '核对方式') }
+      // "told" is a condition nobody here verified: it only passes on a named person's own words about this very condition.
+      if (check.source === 'told' && check.ok) {
+        if (!who || !quote) fail(`第 ${i + 1} 条「${text}」是按口述记通过的，要写明谁说的和他针对这一条的原话："${text}|ok|依据|told|成员标识|原话"。没有人针对这一条说过，就记 no`)
+        check.told = { by: member(c, who === 'me' ? c.me : who, '说这话的人'), quote }
+      }
+      return check
     })
-    if (!checks.length) fail('至少要有一条 --check "条件|ok 或 no|依据|script 或 manual"')
+    if (!checks.length) fail(`至少要有一条 --check "${CHECK_FORMAT}"`)
+    const told = checks.filter((x) => x.told), same = told.find((x, i) => told.findIndex((y) => y.told.quote === x.told.quote) !== i)
+    if (same) fail(`「${same.told.quote}」被用作不止一条门控条件的依据。一句话不能替多条条件作证：逐条问使用者，各记各的原话；没有逐条说过的记 no`)
     checks.unshift(...autoChecks(v, stage))
     const result = checks.every((x) => x.ok) ? 'pass' : 'fail'
-    return commit(c, v.id, { type: 'gate_check', stage, result, checks }, f) + (result === 'fail' ? `\n门控未通过：${checks.filter((x) => !x.ok).map((x) => `${x.text}（${x.evidence}）`).join('；')}` : '\n门控通过。')
+    const onWord = told.length ? `\n其中 ${told.length} 条是按口述记的，没有核实：${told.map((x) => x.text).join('；')}。请求签收时要在摘要里单独列出。` : ''
+    return commit(c, v.id, { type: 'gate_check', stage, result, checks }, f) + onWord + (result === 'fail' ? `\n门控未通过：${checks.filter((x) => !x.ok).map((x) => `${x.text}（${x.evidence}）`).join('；')}` : '\n门控通过。')
   },
   'stage request'(c, f) { const v = versionOf(c, f); return commit(c, v.id, { type: 'signoff_request', stage: oneOf(f.stage, FLOWS[v.flow], '阶段'), to: list(need(f, 'to', '请谁签收')).map((id) => member(c, id, '签收人')), summary: need(f, 'summary', '本阶段摘要') }, f) },
   'stage complete'(c, f) {
@@ -245,17 +264,25 @@ const commands = {
   block(c, f) { const v = versionOf(c, f); return commit(c, v.id, { type: 'block', text: need(f, 'text', '被什么卡住'), owner: member(c, need(f, 'owner', '归谁处理'), '归属人'), ...pick(f, ['ref']) }, f) },
   unblock(c, f) { const v = versionOf(c, f); return commit(c, v.id, { type: 'unblock', target: need(f, 'target', '阻塞事件标识'), ...pick(f, ['note']) }, f) },
   deploy(c, f) {
-    const env = oneOf(f.env, ['dev', 'test', 'staging', 'production'], '环境 --env'), action = oneOf(f.action, ['deploy', 'rollback', 'exception', 'baseline'], '动作 --action')
+    const env = oneOf(f.env, ['dev', 'test', 'staging', 'production'], '环境 --env'), action = oneOf(f.action, ['deploy', 'rollback', 'exception', 'baseline', 'verify'], '动作 --action')
     const versions = list(need(f, 'versions', '涉及的版本号'))
     const unknown = action === 'baseline' ? [] : versions.filter((id) => !c.state.versions.some((v) => v.id === id))
     if (unknown.length) fail(`版本 ${unknown.join('、')} 不存在。接入前就在线上跑的版本用 --action baseline 记录`)
-    const e = { type: 'deploy', env, action, versions, ...pick(f, ['build', 'ref', 'note']) }
+    const e = { type: 'deploy', env, action, versions, ...pick(f, ['build', 'ref', 'note', 'checked']) }
+    // "verify" adds the missing proof to a deployment recorded earlier: what is actually running was looked at.
+    if (action === 'verify') {
+      if (env !== 'production') fail('核对线上版本标识只用于生产环境')
+      if (!c.state.online.running) fail('还没有生产部署记录，没有可核对的')
+      need(f, 'checked', '怎么核对的、线上实际读到的版本标识')
+      return commit(c, 'project', e, f)
+    }
     // A first release has nothing to roll back to: the target may be empty, and production then runs no version.
     if (action === 'rollback') e.target = { version: f['target-version'] ?? null, build: f['target-build'] ?? null }
     // A baseline only states what was already running when the product was onboarded; nobody approved it here.
     // An exception release is recorded after the fact, often without knowing who approved it: the approver is optional there.
     if (env === 'production' && ['deploy', 'rollback'].includes(action) || f['approved-by']) e.approved = { by: member(c, need(f, 'approved-by', '谁批准的'), '批准人'), quote: need(f, 'quote', '批准人的原话') }
-    return commit(c, 'project', e, f)
+    const unchecked = env === 'production' && action !== 'baseline' && !f.checked
+    return commit(c, 'project', e, f) + (unchecked ? '\n线上版本标识还没核对：只知道「说是部署了」，不知道线上实际在跑哪个构建。拿到线上实际的版本标识后运行 deploy --env production --action verify --versions … --checked "怎么核对的、读到的标识"；在那之前状态里会一直提示。' : '')
   },
   'item add'(c, f) {
     const v = versionOf(c, f), id = nextId(c, 'FEAT')
@@ -340,6 +367,7 @@ const commands = {
   help() { return HELP },
 }
 
+const CHECK_FORMAT = '条件|ok 或 no|依据|script、manual 或 told'
 const pick = (f, keys) => Object.fromEntries(keys.filter((k) => f[k] != null && f[k] !== true).map((k) => [k, f[k]]))
 const strip = (c) => ({ ...c.state, problems: c.all.problems, gitless: c.all.gitless })
 
@@ -376,7 +404,7 @@ function statusText(c, only) {
   lines.push(c.me ? `当前操作者：${nm(c.me)}（${c.me}）` : '当前操作者：未识别。需要人做决定时先问「你是哪位成员」，再运行 whoami --set <成员标识>')
   lines.push(`【项目】${s.project.name}（${s.project.type === 'new' ? '新产品' : '存量产品'}）· ${s.project.positioning}`)
   const r = s.online.running
-  lines.push(`线上在跑：${r ? `${r.version ?? '没有版本'}${r.build ? ' ' + r.build : ''}（${md(r.since)} ${r.how === 'rollback' ? '从 ' + r.from.join('、') + ' 回滚' : r.how === 'baseline' ? '登记，接入面板前已在线上' : r.how === 'exception' ? '例外上线，没走完门控，待补齐' : '部署'}）` : '还没有生产部署记录'} · 最后发布：${s.online.lastReleased ? `${s.online.lastReleased.version}（${md(s.online.lastReleased.at)}）` : '无'}`)
+  lines.push(`线上在跑：${r ? `${r.version ?? '没有版本'}${r.build ? ' ' + r.build : ''}（${md(r.since)} ${r.how === 'rollback' ? '从 ' + r.from.join('、') + ' 回滚' : r.how === 'baseline' ? '登记，接入面板前已在线上' : r.how === 'exception' ? '例外上线，没走完门控，待补齐' : '部署'}${r.how !== 'baseline' && !r.checked ? '，⚠ 线上版本标识还没核对' : ''}）` : '还没有生产部署记录'} · 最后发布：${s.online.lastReleased ? `${s.online.lastReleased.version}（${md(s.online.lastReleased.at)}）` : '无'}`)
   const l0 = s.config.filter((x) => x.level === 'L0' && x.status !== 'confirmed'), l1 = s.config.filter((x) => x.level === 'L1' && !['confirmed', 'na'].includes(x.status)), l2 = s.config.filter((x) => x.level === 'L2' && ['todo', 'draft'].includes(x.status))
   const CS = { todo: '未填', skipped: '暂不填', draft: '草稿待审' }
   if (l0.length) {
@@ -395,7 +423,7 @@ function statusText(c, only) {
     lines.push(`${v.id} ${v.flow === 'hotfix' ? '热修复' : '常规'} | ${where} | 计划 ${v.planned ?? '未定'}${v.overdueDays ? `，已逾期 ${v.overdueDays} 天` : ''}${v.replans.length ? `（改期 ${v.replans.length} 次，延 ${v.slipDays} 天）` : ''}`)
     lines.push(`  目标：${v.goal}`, `  负责人：产品 ${nm(v.owners.product)} / 研发 ${nm(v.owners.engineering)} / 测试 ${nm(v.owners.testing)}${v.owners.ops ? ' / 运维 ' + nm(v.owners.ops) : ''}`)
     lines.push(`  进度：${v.stages.map((x) => SHORT[x.key] + MARK[x.state]).join(' ')}${v.rollbacks.length ? `（回退 ${v.rollbacks.length} 次）` : ''}`)
-    if (v.current?.check) lines.push(`  门控核对：${md(v.current.check.at)} ${v.current.check.result === 'pass' ? '通过' : '未通过：' + v.current.check.checks.filter((x) => !x.ok).map((x) => x.text).join('；')}`)
+    if (v.current?.check) lines.push(`  门控核对：${md(v.current.check.at)} ${v.current.check.result === 'pass' ? '通过' + (v.current.check.checks.some((x) => x.told) ? `（其中 ${v.current.check.checks.filter((x) => x.told).length} 条按口述，没有核实）` : '') : '未通过：' + v.current.check.checks.filter((x) => !x.ok).map((x) => x.text).join('；')}`)
     if (v.waiting) lines.push(`  等签收：已请 ${v.waiting.to.map(nm).join('、')} 签收，等了 ${v.waiting.days} 天`)
     if (v.items.length) { const n = (st) => v.items.filter((x) => x.status === st).length; lines.push(`  需求条目：${v.items.length - n('dropped')} 条（${[['confirmed', '已确认'], ['changed', '已变更'], ['draft', '草稿']].filter(([k]) => n(k)).map(([k, t]) => `${t} ${n(k)}`).join('，')}${n('dropped') ? `；另有 ${n('dropped')} 条已移出` : ''}）`) }
     if (v.defects.length) { const open = openDefects(v), w = v.defects.filter((d) => d.status === 'waived').length; lines.push(`  缺陷：未关闭 ${open.length} 条${open.length ? `（${['P0', 'P1', 'P2', 'P3'].filter((p) => open.some((d) => d.severity === p)).map((p) => `${p} ${open.filter((d) => d.severity === p).length}`).join('，')}）` : ''} · 已关闭 ${v.defects.length - open.length - w}${w ? ` · 豁免 ${w}` : ''}`) }
@@ -430,8 +458,9 @@ const HELP = `用法：node tools/panel.mjs <命令> [--参数 值 ...]
       （confirmed 必须带 --quote 且 --by 是成员；skipped、na 必须带 --note；配置项标识见 state/defs/config-items.json）
   whoami [--set 成员标识]            查看或记下这台电脑上的当前操作者（保存在不入库的 profile.md）
   module set --module i18n|planning|smoke --status on|off|declined --quote --by
-  deploy --env dev|test|staging|production --action deploy|rollback|exception|baseline --versions a,b [--build --target-version --target-build --approved-by --quote --ref --note] --by
+  deploy --env dev|test|staging|production --action deploy|rollback|exception|baseline|verify --versions a,b [--build --checked --target-version --target-build --approved-by --quote --ref --note] --by
       （生产环境的 deploy、rollback 必须带 --approved-by 和 --quote；exception 不知道谁批准的可以不带，baseline 不需要；回滚写 --target-version，首次上线回滚没有上一个版本时不写）
+      （--checked 写怎么核对的、线上实际读到的版本标识；生产部署没带它会一直提示「还没核对」，核对后用 --action verify --checked 补上）
 
 版本（都要 --version）
   version new --flow standard|hotfix --product --engineering --testing [--goal --ops --kind --base --branch --planned --fixes] --by
@@ -445,7 +474,8 @@ const HELP = `用法：node tools/panel.mjs <命令> [--参数 值 ...]
 
 阶段（都要 --version --stage）
   stage enter --by
-  stage check --check "条件|ok 或 no|依据|script 或 manual"（可多条）--by
+  stage check --check "${CHECK_FORMAT}"（可多条）--by
+      （script 命令或脚本验证的；manual 自己读了文件、看了记录核实的；told 只是听人说的、没有核实：记 ok 必须再写「|成员标识|他针对这一条的原话」，一句话只能作一条的依据）
   stage request --to a,b --summary --by
   stage complete --signer --quote --by                         （之前要有通过的 stage check 和之后的 stage request）
   stage rollback --from --to --reason --quote [--ref] --by      （不用 --stage）
@@ -472,6 +502,8 @@ const HELP = `用法：node tools/panel.mjs <命令> [--参数 值 ...]
 
 通用：--by 操作人。AI 按流程自己记录的（进入阶段、门控核对、请求签收、记录签收、进展、阻塞）写 ai；
       必须由人决定的（init、成员、设置、配置项确认、模块、挂起/恢复/放弃、声明起点）写做决定的成员标识，当前操作者可以写 me。
+      me 只用于使用者本人做的决定或他明确要你做的事；你按流程自己判断要做的写 ai，不借使用者的名义。
+      原话（--quote）必须是使用者针对这件事说的话：同一句话不能记作两件不同的事的原话。
       --at 发生时间（默认现在）；补记早于已有记录的事件要加 --backfill "原因"；--root 指定仓库目录。
 阶段键：${STAGES.map((s) => `${s} ${STAGE_NAME[s]}`).join('、')}`
 

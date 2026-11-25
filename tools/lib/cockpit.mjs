@@ -63,7 +63,7 @@ export function cockpitData(c) {
     events: v.events.map(({ scope, src, voided, conflict, ...raw }) => ({ id: raw.id, at: loc(raw.at), type: raw.type, by: raw.by, voided, conflict, branch: src?.branch ?? null, state: src?.state ?? 'plain', raw })),
   }))
   const live = versions.filter((v) => LIVE.includes(v.status))
-  const deploys = S.deploys.map((d) => ({ at: loc(d.at), env: d.env, action: d.action, versions: d.versions, build: d.build ?? null, target: d.target ?? null, by: d.by, approvedBy: d.approved?.by ?? null, quote: d.approved?.quote ?? null, ref: d.ref ?? null, note: d.note ?? null, recordedBy: d.recorded_by ?? null }))
+  const deploys = S.deploys.filter((d) => d.action !== 'verify').map((d) => ({ at: loc(d.at), env: d.env, action: d.action, versions: d.versions, build: d.build ?? null, target: d.target ?? null, by: d.by, approvedBy: d.approved?.by ?? null, quote: d.approved?.quote ?? null, ref: d.ref ?? null, note: d.note ?? null, recordedBy: d.recorded_by ?? null }))
   const online = { ...S.online, running: S.online.running && { ...S.online.running, since: loc(S.online.running.since) }, lastReleased: S.online.lastReleased && { ...S.online.lastReleased, at: loc(S.online.lastReleased.at) } }
 
   /* ---- inbox: what is waiting for whom ---- */
@@ -74,6 +74,7 @@ export function cockpitData(c) {
   for (const x of S.projectConflicts) add(everyone, '有矛盾', null, '项目级记录有一条没有生效', x.why, `项目级记录有一条矛盾：${x.why}。帮我列出处理办法，我来决定。`)
   for (const v of versions) for (const x of v.conflicts) add([v.owners.product, x.by], '有矛盾', v.id, `${v.id} 有一条记录没有生效`, x.why, `${v.id} 有一条矛盾的记录：${x.why}。帮我列出处理办法，我来决定。`)
   const r = online.running
+  if (r && r.how !== 'baseline' && !r.checked) add(everyone, '待核对', null, '线上版本标识还没核对', `${r.since.slice(5, 10)} 记录了生产${r.how === 'rollback' ? '回滚' : '部署'}，但还没有人看过线上实际在跑哪个构建`, '生产部署记录的线上版本标识还没核对。告诉我去哪里能看到线上实际的版本标识，我看完告诉你，你来补记。')
   if (r?.how === 'rollback') {
     const from = versions.find((v) => v.id === r.from?.[0])
     if (from && LIVE.includes(from.status)) add([from.owners.product], '线上已回滚', from.id, `生产已从 ${r.from.join('、')} 回滚${r.version ? '到 ' + r.version : '，线上现在没有版本'}`, `${r.since.slice(5, 10)}${r.note ? '，' + r.note : ''}${r.ref ? '（' + r.ref + '）' : ''}。${from.id} 还没有发布完成，要决定下一步`,
