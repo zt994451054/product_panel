@@ -478,7 +478,9 @@ const HELP = `用法：node tools/panel.mjs <命令> [--参数 值 ...]
 /** Programmatic entry (used by the tests). Returns { code, out }. */
 export function run(argv, { root, env = process.env } = {}) {
   const { words, flags } = parse(argv)
-  const base = resolve(flags.root ?? root ?? git(process.cwd(), ['rev-parse', '--show-toplevel'])?.trim() ?? process.cwd())
+  // The tool always works on the panel it is part of, wherever it is called from. Going by the caller's directory
+  // would report a healthy project as uninitialized when the command is run from somewhere else.
+  const base = resolve(flags.root ?? root ?? join(import.meta.dirname, '..'))
   const name = commands[words.slice(0, 2).join(' ')] ? words.slice(0, 2).join(' ') : words[0] ?? 'help'
   try {
     if (!commands[name]) fail(`不认识的命令「${words.join(' ')}」。运行 node tools/panel.mjs help 查看全部命令`)
