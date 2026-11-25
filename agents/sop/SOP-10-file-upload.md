@@ -25,7 +25,7 @@
 > ② 文件重命名：`20260419-BUG001-email-notification-bug.png`
 > ③ 读取 OSS.md → remote=`niuma-hr`，bucket=`niuma-assets`，CDN=`https://assets.niuma-hr.com`
 > ④ `rclone copy` 上传到 `versions/v1.0.0/testing/` 路径下，`rclone ls` 确认
-> ⑤ 在 defects.md 的 BUG-001 详情中嵌入 URL：
+> ⑤ 在 defects.md 的 BUG-xiaozhou-001 详情中嵌入 URL：
 >    `![截图](https://assets.niuma-hr.com/niuma-hr/versions/v1.0.0/testing/20260419-BUG001-email-notification-bug.png)`
 > ⑥ 本地截图文件无需保留在驱动面板目录中
 

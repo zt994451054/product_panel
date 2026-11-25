@@ -9,6 +9,11 @@ export const STAGES = FLOWS.standard
 export const STAGE_NAME = { requirements: '需求分析', design: '产品设计', tech: '技术方案', test_design: '测试设计', dev: '开发中', test: '测试', release: '发布' }
 // These two gates always belong to a human; hard-coded on purpose so no setting can open them.
 export const FIXED_HUMAN = ['test', 'release']
+export const ITEM_STATUS = { draft: '草稿', confirmed: '已确认', changed: '已变更', dropped: '已移出' }
+export const DEFECT_STATUS = { open: '待修复', fixing: '修复中', fixed: '已修复待复测', verifying: '待验收', closed: '已关闭', waived: '已豁免' }
+// Which status a defect may move to from each status. Reopening always goes back to "open".
+export const DEFECT_NEXT = { open: ['fixing', 'fixed'], fixing: ['fixed', 'open'], fixed: ['verifying', 'open'], verifying: ['closed', 'open'], closed: ['open'], waived: ['open'] }
+export const DEFECT_FOUND = { self_test: '开发自测', test: '测试', prod_verify: '生产业务验证', acceptance: '生产验收' }
 export const MODES = ['auto', 'review_human', 'human'] // loosest to strictest
 export const DEFAULT_SETTINGS = { 'stall_days.standard': 14, 'stall_days.hotfix': 2 }
 export const CONFIG_STATUS = ['todo', 'skipped', 'draft', 'confirmed', 'na']
@@ -30,18 +35,21 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
 
   const project = { info: null, members: new Map(), settings: { ...DEFAULT_SETTINGS }, settingHistory: [], config: new Map(), modules: new Map(), deploys: [], conflicts: [] }
   const versions = new Map(), signoffs = []
+  // Ledger numbers (requirement items, defects) are unique across the whole project, whatever version they sit in.
+  const ledger = new Map()
 
   const newVersion = (e) => ({
     id: e.version, create: e, attrs: { ...e }, flow: e.flow,
     stages: Object.fromEntries(FLOWS[e.flow].map((s) => [s, { intervals: [], signoff: null, everDone: false, untracked: false, rollbacks: 0 }])),
-    open: null, holds: [], abandoned: null, blocks: [], progress: null, replans: [], rollbacks: [], checks: [], requests: [], downstream: [], conflicts: [], log: [],
+    open: null, holds: [], abandoned: null, blocks: [], progress: null, replans: [], rollbacks: [], checks: [], requests: [], downstream: [], items: new Map(), defects: new Map(), conflicts: [], duplicates: [], log: [],
   })
   const paused = (v) => v.holds.length > 0 && !v.holds.at(-1).to
   const nextStage = (v) => FLOWS[v.flow].find((s) => !v.stages[s].signoff && !v.stages[s].untracked) ?? null
 
   for (const e of events) {
     if (e.type === 'void') { versions.get(e.scope)?.log.push({ e }); continue }
-    if (voided.has(e.id)) { versions.get(e.scope)?.log.push({ e, voided: true }); continue }
+    // Voiding a version creation also retires everything that was written against it.
+    if (voided.has(e.id) || (e.create && voided.has(e.create))) { versions.get(e.scope)?.log.push({ e, voided: true }); continue }
 
     if (e.scope === 'project') {
       const bad = (why) => project.conflicts.push({ e, why })
@@ -75,9 +83,14 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
     // Every version event names the creation it was written against. After a version-number clash, the events of the
     // losing side must not act on the winner's version.
     if (e.create && e.create !== v.create.id) { bad(`这条记录属于另一个撞了号的 ${e.scope}（在 ${e.src?.branch ?? '另一处'} 上），没有生效。那个版本换号后要重新记录`); continue }
+    // Two people working offline can record the same step twice. The later copy changes nothing and is not a contradiction.
+    const dup = (why) => { v.duplicates.push({ e, why }); v.log.push({ e, duplicate: why }) }
+    if (e.type === 'stage_enter' && (v.open === e.stage || v.stages[e.stage]?.signoff)) { dup(`「${STAGE_NAME[e.stage]}」${v.open === e.stage ? '已经在进行中' : '已经签收'}，这条重复的进入阶段没有再算一次`); continue }
+    if (['gate_check', 'signoff_request', 'stage_complete'].includes(e.type) && v.open !== e.stage && v.stages[e.stage]?.signoff) { dup(`「${STAGE_NAME[e.stage]}」已经签收，这条晚到的记录没有再算一次`); continue }
     const isStage = ['stage_enter', 'stage_complete', 'stage_rollback', 'gate_check', 'signoff_request', 'onboard'].includes(e.type)
     if (isStage && v.abandoned) { bad('版本已放弃，不能再推进阶段'); continue }
     if (isStage && paused(v)) { bad('版本挂起中，恢复后才能推进阶段'); continue }
+    if (v.stages.release.signoff && ['hold', 'abandon', 'replan', 'onboard', 'stage_rollback', 'item_add', 'item_status', 'defect_open', 'defect_status', 'defect_waive'].includes(e.type)) { bad('版本已经发布，不能再挂起、放弃、改期、回退，也不能再改它的需求条目和缺陷。线上有问题按生产缺陷处理，要修就开热修复版本'); continue }
     const flow = FLOWS[v.flow]
 
     switch (e.type) {
@@ -123,6 +136,38 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
       case 'resume': if (!paused(v)) { bad('版本没有挂起，不需要恢复'); continue } v.holds.at(-1).to = e.at; break
       case 'abandon': if (v.abandoned) { bad('版本已经放弃'); continue } if (paused(v)) v.holds.at(-1).to = e.at; v.abandoned = e; break
       case 'downstream_check': v.downstream.push(e); break
+      case 'item_add': case 'defect_open': {
+        const id = e.item ?? e.defect
+        if (ledger.has(id)) { bad(`编号 ${id} 已经被占用（${ledger.get(id)} 里先登记的那条生效）。这条后登记的没有生效：作废它再重新登记，会拿到新编号`); continue }
+        ledger.set(id, v.id)
+        if (e.type === 'item_add') v.items.set(id, { id, module: e.module ?? null, name: e.name, priority: e.priority, source: e.source ?? null, status: 'draft', at: e.at, by: e.recorded_by, confirmed: null, ref: null })
+        else v.defects.set(id, { id, title: e.title, severity: e.severity, foundIn: e.found_in, module: e.module ?? null, case: e.case ?? null, status: 'open', at: e.at, by: e.recorded_by, assignee: null, verifier: null, build: null, reopened: 0, closedAt: null, waiver: null })
+        break
+      }
+      case 'item_status': {
+        const it = v.items.get(e.item)
+        if (!it) { bad(`需求条目 ${e.item} 不存在`); continue }
+        if (it.status === 'dropped') { bad(`需求条目 ${e.item} 已经移出本版本，不能再改状态`); continue }
+        it.status = e.status; it.ref = e.ref ?? it.ref
+        if (e.status === 'confirmed') it.confirmed = { by: e.by, quote: e.quote, at: e.at }
+        break
+      }
+      case 'defect_status': {
+        const d = v.defects.get(e.defect)
+        if (!d) { bad(`缺陷 ${e.defect} 不存在`); continue }
+        if (!DEFECT_NEXT[d.status].includes(e.status)) { bad(`缺陷 ${e.defect} 现在是「${DEFECT_STATUS[d.status]}」，不能直接改为「${DEFECT_STATUS[e.status] ?? e.status}」`); continue }
+        if (e.status === 'open') { d.reopened += 1; d.closedAt = null; d.waiver = null }
+        if (e.status === 'closed') { d.closedAt = e.at; d.verifier = e.verifier ?? d.verifier; d.closeQuote = e.quote ?? null }
+        d.status = e.status; d.assignee = e.assignee ?? d.assignee; d.build = e.build ?? d.build
+        break
+      }
+      case 'defect_waive': {
+        const d = v.defects.get(e.defect)
+        if (!d) { bad(`缺陷 ${e.defect} 不存在`); continue }
+        if (['closed', 'waived'].includes(d.status)) { bad(`缺陷 ${e.defect} 已经${DEFECT_STATUS[d.status]}，不需要豁免`); continue }
+        d.status = 'waived'; d.waiver = { by: e.by, quote: e.quote, scope: e.scope, until: e.until ?? null, decision: e.decision ?? null, at: e.at }
+        break
+      }
     }
     v.log.push({ e })
   }
@@ -137,7 +182,7 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
   const out = [...versions.values()].map((v) => {
     const flow = FLOWS[v.flow], released = v.stages.release.signoff
     const started = flow.some((s) => v.stages[s].intervals.length || v.stages[s].untracked)
-    const status = v.abandoned ? 'abandoned' : paused(v) ? 'paused' : released ? 'released' : started ? 'active' : 'planned'
+    const status = released ? 'released' : v.abandoned ? 'abandoned' : paused(v) ? 'paused' : started ? 'active' : 'planned'
     const stages = flow.map((s) => {
       const st = v.stages[s]
       const state = st.untracked ? 'untracked' : v.open === s ? 'open' : st.signoff ? 'done' : st.everDone || st.intervals.length ? 'reopened' : 'pending'
@@ -161,7 +206,7 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
     }
     const next = !v.open && status === 'active' ? nextStage(v) : null
     const firstPlan = v.replans[0]?.from ?? v.attrs.planned_release
-    const effective = v.log.filter((x) => !x.conflict && !x.voided)
+    const effective = v.log.filter((x) => !x.conflict && !x.voided && !x.duplicate)
     const last = effective.at(-1)?.e ?? v.create
     return {
       id: v.id, flow: v.flow, kind: v.attrs.kind, goal: v.attrs.goal, branch: v.attrs.branch ?? null, base: v.attrs.base ?? null, fixes: v.attrs.fixes ?? [],
@@ -178,11 +223,14 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
       progress: v.progress && (!v.progress.stage || v.progress.stage === v.open) ? { text: v.progress.text, at: v.progress.at } : null,
       rollbacks: v.rollbacks.map((r) => ({ at: r.at, from: r.from, to: r.to, reason: r.reason, ref: r.ref ?? null })),
       downstream: v.downstream.map((d) => ({ target: d.target, result: d.result, evidence: d.evidence, by: d.confirmed?.by ?? null })),
+      items: [...v.items.values()],
+      defects: [...v.defects.values()].map((d) => ({ ...d, days: dayDiff(d.at, d.closedAt ?? now), hours: Math.round(hours(d.at, d.closedAt ?? now)) })),
       createId: v.create.id, deployedToProduction: project.deploys.some((d) => d.env === 'production' && d.action !== 'rollback' && d.versions.includes(v.id)),
-      conflicts: v.conflicts.map((c) => ({ id: c.e.id, type: c.e.type, at: c.e.at, by: c.e.by, why: c.why, branch: c.e.src?.branch ?? null })),
+      conflicts: v.conflicts.map((c) => ({ id: c.e.id, type: c.e.type, at: c.e.at, by: c.e.by, why: c.why, branch: c.e.src?.branch ?? null, here: !!c.e.src?.here })),
+      duplicates: v.duplicates.map((d) => ({ id: d.e.id, type: d.e.type, at: d.e.at, why: d.why, branch: d.e.src?.branch ?? null })),
       source: { branch: last.src?.branch ?? null, at: last.at, unpushed: effective.filter((x) => x.e.src?.state === 'unpushed').length, uncommitted: effective.filter((x) => x.e.src?.state === 'uncommitted').length },
       lastEventAt: effective.reduce((m, x) => later(m, x.e.at), v.create.at),
-      events: v.log.map((x) => ({ ...x.e, voided: !!x.voided, conflict: x.conflict ?? null })),
+      events: v.log.map((x) => ({ ...x.e, voided: !!x.voided, conflict: x.conflict ?? null, duplicate: x.duplicate ?? null })),
     }
   })
 

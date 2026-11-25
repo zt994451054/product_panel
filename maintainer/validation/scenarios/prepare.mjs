@@ -51,7 +51,16 @@ if (scenario === 'S9') {
   cpSync(join(fixtures, 'release-v1', 'files'), panel, { recursive: true })
   signoff('test_design', '2026-10-26', 'xiaozhou', '用例确认')
   enter('dev', '2026-10-27'); signoff('dev', '2026-10-28', 'xiaowang', '开发完成')
-  enter('test', '2026-10-29'); signoff('test', '2026-10-31', 'xiaozhou', '可以发布')
+  enter('test', '2026-10-29')
+  // The one defect of this version, registered by the tester and taken through fix, retest and human acceptance.
+  panelCmd('whoami', '--set', 'xiaozhou')
+  const D = ['--defect', 'BUG-xiaozhou-001', ...V, '--by', 'ai']
+  panelCmd('defect', 'open', ...V, '--title', '并发预约时未开始预约数统计不在事务内，可超过 3 个', '--severity', 'P1', '--found-in', 'test', '--module', '后端', '--case', 'TC-xiaozhou-003', '--by', 'ai', '--at', '2026-10-29T14:00')
+  panelCmd('defect', 'status', ...D, '--to', 'fixed', '--assignee', 'xiaowang', '--build', 'a1b2c3d', '--at', '2026-10-30T11:00')
+  panelCmd('defect', 'status', ...D, '--to', 'verifying', '--at', '2026-10-30T15:00')
+  panelCmd('defect', 'close', ...D, '--verifier', 'xiaozhou', '--quote', '验收通过', '--at', '2026-10-30T17:00')
+  panelCmd('whoami', '--set', 'xiaolin')
+  signoff('test', '2026-10-31', 'xiaozhou', '可以发布')
   enter('release', '2026-11-01')
   panelCmd('version', 'new', '--version', 'v1.1.0', '--goal', '预约改期与取消规则调整，改动 booking 表和预约接口', '--branch', 'feat/v1.1.0', '--base', 'v1.0.0',
     '--product', 'xiaolin', '--engineering', 'xiaowang', '--testing', 'xiaozhou', '--by', 'xiaolin', '--at', '2026-10-30T10:00')

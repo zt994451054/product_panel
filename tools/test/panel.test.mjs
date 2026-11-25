@@ -40,10 +40,17 @@ const OWNERS = ['--product', 'xiaolin', '--engineering', 'azhe', '--testing', 'z
 const rawVersion = (r, v, at, extra = []) => r.ok('version', 'new', '--version', v, '--goal', '目标', ...OWNERS, '--by', 'xiaolin', '--at', at, ...extra)
 // Creating a version also settles the "version and owners" config item, which can only be confirmed once a version exists.
 const newVersion = (r, v, at, extra = []) => { const out = rawVersion(r, v, at, extra); r.ok('config', 'set', '--item', 'version_owners', '--status', 'confirmed', '--quote', '确认', '--by', 'xiaolin', '--at', '2026-08-20T10:00'); return out }
+/** Register one confirmed P0 requirement item, which the requirements gate asks for. */
+function feat(r, v, at) {
+  const id = r.ok('item', 'add', '--version', v, '--name', '预约时段', '--priority', 'P0', '--by', 'ai', '--at', at).match(/编号：(\S+?)（/)[1]
+  r.ok('item', 'confirm', '--version', v, '--item', id, '--quote', '确认', '--by', 'xiaolin', '--at', at)
+  return id
+}
 /** Enter a stage, pass its gate, sign it off. `d` is the day in 2026-10. */
 function pass(r, v, stage, d, signer = 'xiaolin') {
   const at = (h) => `2026-10-${String(d).padStart(2, '0')}T${h}:00`
   r.ok('stage', 'enter', '--version', v, '--stage', stage, '--by', 'ai', '--at', at('09'))
+  if (stage === 'requirements' && !r.state().versions.find((x) => x.id === v).items.length) feat(r, v, at('10'))
   r.ok('stage', 'check', '--version', v, '--stage', stage, '--check', '条件|ok|依据|manual', '--by', 'ai', '--at', at('15'))
   r.ok('stage', 'request', '--version', v, '--stage', stage, '--to', signer, '--summary', '摘要', '--by', 'ai', '--at', at('16'))
   r.ok('stage', 'complete', '--version', v, '--stage', stage, '--signer', signer, '--quote', '可以', '--by', 'ai', '--at', at('17'))
@@ -75,6 +82,7 @@ test('standard flow: order, gate check and signer are enforced', () => {
   const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00')
   r.no(/下一个阶段是「需求分析」/, 'stage', 'enter', '--version', 'v1.0.0', '--stage', 'design', '--by', 'ai')
   r.ok('stage', 'enter', '--version', 'v1.0.0', '--stage', 'requirements', '--by', 'ai', '--at', '2026-10-02T09:00')
+  feat(r, 'v1.0.0', '2026-10-02T10:00')
   r.no(/门控核对/, 'stage', 'complete', '--version', 'v1.0.0', '--stage', 'requirements', '--signer', 'xiaolin', '--quote', '好', '--by', 'ai')
   assert.match(r.ok('stage', 'check', '--version', 'v1.0.0', '--stage', 'requirements', '--check', 'P0 已确认|no|还有 2 条草稿|script', '--by', 'ai', '--at', '2026-10-03T09:00'), /门控未通过/)
   r.no(/没有通过/, 'stage', 'complete', '--version', 'v1.0.0', '--stage', 'requirements', '--signer', 'xiaolin', '--quote', '好', '--by', 'ai')
@@ -91,7 +99,10 @@ test('standard flow: order, gate check and signer are enforced', () => {
 
 test('hotfix flow starts at tech and has five stages', () => {
   const r = ready()
+  r.no(/还没有已发布的版本/, 'version', 'new', '--version', 'v1.0.1', '--flow', 'hotfix', '--fixes', 'PROD-003', '--goal', 'x', ...OWNERS, '--by', 'xiaolin')
+  r.ok('deploy', '--env', 'production', '--action', 'baseline', '--versions', 'v1.0.0', '--by', 'ai', '--at', '2026-09-01T09:00')
   r.no(/热修复流程只用于/, 'version', 'new', '--version', 'v2.0.0', '--flow', 'hotfix', '--kind', 'major', '--goal', 'x', ...OWNERS, '--by', 'xiaolin')
+  r.no(/补丁号/, 'version', 'new', '--version', 'v1.1.0', '--flow', 'hotfix', '--fixes', 'PROD-003', '--goal', 'x', ...OWNERS, '--by', 'xiaolin')
   r.no(/热修复流程只用于/, 'version', 'new', '--version', 'v1.0.1', '--flow', 'hotfix', '--goal', 'x', ...OWNERS, '--by', 'xiaolin')
   newVersion(r, 'v1.0.1', '2026-10-01T09:00', ['--flow', 'hotfix', '--fixes', 'PROD-003'])
   r.no(/只用于存量产品/, 'version', 'onboard', '--version', 'v1.0.1', '--stage', 'release', '--quote', '直接发', '--by', 'xiaolin')
@@ -137,6 +148,7 @@ test('gate settings: only members may change them, test and release stay human, 
   r.no(/不是在册成员/, 'settings', 'set', '--key', 'gate.tech', '--value', 'auto', '--quote', 'x', '--by', 'ai')
   r.ok('settings', 'set', '--key', 'gate.requirements', '--value', 'review_human', '--quote', '先评审再给我看', '--by', 'xiaolin', '--at', '2026-10-01T10:00')
   r.ok('stage', 'enter', '--version', 'v1.0.0', '--stage', 'requirements', '--by', 'ai', '--at', '2026-10-02T09:00')
+  feat(r, 'v1.0.0', '2026-10-02T09:30')
   r.ok('stage', 'check', '--version', 'v1.0.0', '--stage', 'requirements', '--check', 'a|ok|b', '--by', 'ai', '--at', '2026-10-02T10:00')
   r.ok('stage', 'request', '--version', 'v1.0.0', '--stage', 'requirements', '--to', 'xiaolin', '--summary', '摘要', '--by', 'ai', '--at', '2026-10-02T10:30')
   // Review records do not exist yet, so nothing but a human sign-off is accepted, whatever the setting says.
@@ -280,6 +292,8 @@ test('commands run back to back keep their order, and an older passing check can
   const V = ['--version', 'v1.0.0', '--stage', 'requirements', '--by', 'ai']
   // No --at: all four land in the same second, exactly as an agent following SOP-07 would run them.
   r.ok('stage', 'enter', ...V)
+  const item = r.ok('item', 'add', '--version', 'v1.0.0', '--name', '预约时段', '--priority', 'P0', '--by', 'ai').match(/编号：(\S+?)（/)[1]
+  r.ok('item', 'confirm', '--version', 'v1.0.0', '--item', item, '--quote', '确认', '--by', 'xiaolin')
   r.ok('stage', 'check', ...V, '--check', 'a|ok|b')
   r.ok('stage', 'check', ...V, '--check', 'a|no|缺一项')
   r.no(/没有通过/, 'stage', 'complete', ...V, '--signer', 'xiaolin', '--quote', '好')
@@ -341,4 +355,123 @@ test('rolling back a first release leaves production without a version', () => {
   r.ok('deploy', '--env', 'production', '--action', 'rollback', '--versions', 'v1.0.0', '--approved-by', 'xiaolin', '--quote', '好', '--by', 'azhe', '--at', '2026-10-08T08:00')
   assert.match(r.ok('status'), /线上在跑：没有版本（10-08 从 v1\.0\.0 回滚）/)
   r.ok('render')
+})
+
+/** Run `fn` as if this clone had never fetched `branch`: the ref is hidden while it runs. */
+function offline(r, branch, fn) {
+  const sha = r.g('rev-parse', branch).trim()
+  r.g('update-ref', '-d', `refs/heads/${branch}`)
+  try { fn() } finally { r.g('update-ref', `refs/heads/${branch}`, sha) }
+}
+
+test('the same step recorded twice from two branches is a duplicate, not a contradiction', () => {
+  const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00'); r.commit('init')
+  r.g('checkout', '-q', '-b', 'a'); pass(r, 'v1.0.0', 'requirements', 2); r.commit('a')
+  r.g('checkout', '-q', 'main'); r.g('checkout', '-q', '-b', 'b'); offline(r, 'a', () => pass(r, 'v1.0.0', 'requirements', 3)); r.commit('b')
+  const v = r.state().versions[0]
+  assert.equal(v.conflicts.length, 0); assert.equal(v.duplicates.length, 4); assert.equal(v.stages[0].signoff.at.slice(0, 10), '2026-10-02')
+  assert.match(r.ok('check'), /检查通过/)
+  r.no(/已经签收/, 'stage', 'enter', '--version', 'v1.0.0', '--stage', 'requirements', '--by', 'ai')
+})
+
+test('the side that lost a number clash is stopped, and voiding its creation clears everything written against it', () => {
+  const r = ready(); r.commit('init')
+  r.g('checkout', '-q', '-b', 'a'); newVersion(r, 'v1.1.0', '2026-10-01T09:00'); r.commit('a')
+  r.g('checkout', '-q', 'main'); r.g('checkout', '-q', '-b', 'b')
+  offline(r, 'a', () => {
+    r.ok('version', 'new', '--version', 'v1.1.0', '--goal', '另一个目标', ...OWNERS, '--by', 'xiaolin', '--at', '2026-10-02T09:00')
+    r.ok('config', 'set', '--item', 'version_owners', '--status', 'confirmed', '--quote', '确认', '--by', 'xiaolin', '--at', '2026-10-02T10:00')
+    r.ok('stage', 'enter', '--version', 'v1.1.0', '--stage', 'requirements', '--by', 'ai', '--at', '2026-10-03T09:00')
+  })
+  r.commit('b')
+  const lost = r.state().versions[0].conflicts.find((x) => x.type === 'version_create')
+  assert.ok(lost.here); assert.equal(r.state().versions[0].conflicts.length, 2)
+  r.no(/撞号了/, 'note', '--version', 'v1.1.0', '--text', '进展', '--by', 'ai')
+  r.ok('event', 'void', '--target', lost.id, '--reason', '换号为 v1.2.0', '--by', 'xiaolin')
+  assert.equal(r.state().versions[0].conflicts.length, 0); assert.match(r.ok('check'), /检查通过/)
+  r.ok('note', '--version', 'v1.1.0', '--text', '进展', '--by', 'ai')
+})
+
+test('a released version cannot be put on hold, abandoned or replanned', () => {
+  const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00')
+  for (const [i, s] of ['requirements', 'design', 'tech', 'test_design', 'dev', 'test'].entries()) pass(r, 'v1.0.0', s, i + 2)
+  r.ok('deploy', '--env', 'production', '--action', 'deploy', '--versions', 'v1.0.0', '--approved-by', 'xiaolin', '--quote', '上', '--by', 'ai', '--at', '2026-10-09T08:00')
+  pass(r, 'v1.0.0', 'release', 9)
+  r.no(/已经发布/, 'version', 'hold', '--version', 'v1.0.0', '--reason', 'x', '--resume-when', 'x', '--quote', 'x', '--by', 'xiaolin')
+  r.no(/已经发布/, 'version', 'abandon', '--version', 'v1.0.0', '--reason', 'x', '--quote', 'x', '--by', 'xiaolin')
+  r.no(/已经发布/, 'version', 'replan', '--version', 'v1.0.0', '--to', '2026-12-01', '--reason', 'x', '--by', 'xiaolin')
+  assert.equal(r.state().versions[0].status, 'released')
+  newVersion(r, 'v1.1.0', '2026-10-10T09:00')
+  r.no(/不属于在途版本/, 'downstream-check', '--version', 'v1.1.0', '--target', 'v1.0.0', '--result', 'not_needed', '--evidence', 'x', '--confirmed-by', 'azhe', '--quote', 'x', '--by', 'ai')
+})
+
+test('requirement items: numbers are per member, the requirements gate counts them, changes need a reference', () => {
+  const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00')
+  const V = ['--version', 'v1.0.0']
+  r.ok('stage', 'enter', ...V, '--stage', 'requirements', '--by', 'ai', '--at', '2026-10-02T09:00')
+  assert.match(r.ok('stage', 'check', ...V, '--stage', 'requirements', '--check', 'a|ok|b', '--by', 'ai', '--at', '2026-10-02T09:10'), /门控未通过：需求条目已登记/)
+  // No operator known: a random code. With an operator: that member's own counter.
+  const anon = r.ok('item', 'add', ...V, '--name', '匿名登记', '--priority', 'P2', '--by', 'ai', '--at', '2026-10-02T09:20').match(/编号：(\S+?)（/)[1]
+  assert.match(anon, /^FEAT-[a-z0-9]{4}$/)
+  r.ok('whoami', '--set', 'xiaolin')
+  assert.match(r.ok('item', 'add', ...V, '--name', '预约时段', '--priority', 'P0', '--module', '预约', '--by', 'ai', '--at', '2026-10-02T10:00'), /FEAT-xiaolin-001/)
+  assert.match(r.ok('item', 'add', ...V, '--name', '取消预约', '--priority', 'P0', '--by', 'ai', '--at', '2026-10-02T10:01'), /FEAT-xiaolin-002/)
+  r.ok('whoami', '--set', 'azhe')
+  assert.match(r.ok('item', 'add', ...V, '--name', '导出', '--priority', 'P1', '--by', 'ai', '--at', '2026-10-02T10:02'), /FEAT-azhe-001/)
+  r.no(/不是在册成员/, 'item', 'confirm', ...V, '--item', 'FEAT-xiaolin-001', '--quote', '好', '--by', 'ai')
+  r.ok('item', 'confirm', ...V, '--item', 'FEAT-xiaolin-001', '--quote', '时段没问题', '--by', 'xiaolin', '--at', '2026-10-02T11:00')
+  assert.match(r.ok('stage', 'check', ...V, '--stage', 'requirements', '--check', 'a|ok|b', '--by', 'ai', '--at', '2026-10-02T11:10'), /FEAT-xiaolin-002 取消预约/)
+  r.ok('item', 'drop', ...V, '--item', 'FEAT-xiaolin-002', '--reason', '挪到下个版本', '--quote', '这版不做取消', '--by', 'xiaolin', '--at', '2026-10-02T11:20')
+  r.no(/已经移出/, 'item', 'confirm', ...V, '--item', 'FEAT-xiaolin-002', '--quote', '好', '--by', 'xiaolin', '--at', '2026-10-02T11:30')
+  assert.match(r.ok('stage', 'check', ...V, '--stage', 'requirements', '--check', 'a|ok|b', '--by', 'ai', '--at', '2026-10-02T11:40'), /门控通过/)
+  r.no(/缺少 --ref/, 'item', 'change', ...V, '--item', 'FEAT-xiaolin-001', '--by', 'ai')
+  r.ok('item', 'change', ...V, '--item', 'FEAT-xiaolin-001', '--ref', 'CHANGE-xiaolin-001', '--by', 'ai', '--at', '2026-10-02T12:00')
+  const v = r.state().versions[0]
+  assert.deepEqual(v.items.map((x) => x.status), ['draft', 'changed', 'dropped', 'draft'])
+  assert.match(r.ok('status'), /需求条目：3 条（已变更 1，草稿 2；另有 1 条已移出）/)
+  // A voided number is not handed out again.
+  const last = v.events.findLast((e) => e.type === 'item_add')
+  r.ok('event', 'void', '--target', last.id, '--reason', '登记错了', '--by', 'ai')
+  assert.match(r.ok('item', 'add', ...V, '--name', '导出', '--priority', 'P1', '--by', 'ai'), /FEAT-azhe-002/)
+})
+
+test('defects: status order, human close, waiver, and the test gate', () => {
+  const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00'); r.ok('whoami', '--set', 'zhouzhou')
+  for (const [i, s] of ['requirements', 'design', 'tech', 'test_design', 'dev'].entries()) pass(r, 'v1.0.0', s, i + 2)
+  const V = ['--version', 'v1.0.0'], at = (h) => `2026-10-08T${h}:00`
+  r.ok('stage', 'enter', ...V, '--stage', 'test', '--by', 'ai', '--at', at('09'))
+  r.no(/发现阶段/, 'defect', 'open', ...V, '--title', 'x', '--severity', 'P1', '--found-in', 'prod', '--by', 'ai')
+  assert.match(r.ok('defect', 'open', ...V, '--title', '关闭通知后仍收到邮件', '--severity', 'P1', '--found-in', 'test', '--case', 'TC-zhouzhou-002', '--by', 'ai', '--at', at('10')), /BUG-zhouzhou-001/)
+  assert.match(r.ok('defect', 'open', ...V, '--title', '按钮错位', '--severity', 'P3', '--found-in', 'test', '--by', 'ai', '--at', at('10')), /BUG-zhouzhou-002/)
+  const B1 = ['--defect', 'BUG-zhouzhou-001']
+  r.no(/不能直接改为「待验收」/, 'defect', 'status', ...V, ...B1, '--to', 'verifying', '--by', 'ai')
+  r.no(/才能由人验收关闭/, 'defect', 'close', ...V, ...B1, '--verifier', 'zhouzhou', '--quote', '好', '--by', 'ai')
+  r.ok('defect', 'status', ...V, ...B1, '--to', 'fixing', '--assignee', 'azhe', '--by', 'ai', '--at', at('11'))
+  r.ok('defect', 'status', ...V, ...B1, '--to', 'fixed', '--build', 'b12', '--by', 'ai', '--at', at('12'))
+  r.no(/缺少 --note/, 'defect', 'status', ...V, ...B1, '--to', 'open', '--by', 'ai')
+  r.ok('defect', 'status', ...V, ...B1, '--to', 'open', '--note', '复测仍收到邮件', '--by', 'ai', '--at', at('13'))
+  r.ok('defect', 'status', ...V, ...B1, '--to', 'fixed', '--build', 'b13', '--by', 'ai', '--at', at('14'))
+  r.ok('defect', 'status', ...V, ...B1, '--to', 'verifying', '--by', 'ai', '--at', at('15'))
+  assert.match(r.ok('stage', 'check', ...V, '--stage', 'test', '--check', 'a|ok|b', '--by', 'ai', '--at', at('15')), /未关闭：BUG-zhouzhou-001（P1，待验收）、BUG-zhouzhou-002（P3，待修复）/)
+  r.no(/不是在册成员/, 'defect', 'close', ...V, ...B1, '--verifier', 'ai', '--quote', '好', '--by', 'ai')
+  r.ok('defect', 'close', ...V, ...B1, '--verifier', 'zhouzhou', '--quote', '验收通过', '--by', 'ai', '--at', at('16'))
+  r.no(/不是在册成员/, 'defect', 'waive', ...V, '--defect', 'BUG-zhouzhou-002', '--scope', '仅 IE', '--quote', '先不修', '--by', 'ai')
+  r.ok('defect', 'waive', ...V, '--defect', 'BUG-zhouzhou-002', '--scope', '只影响后台列表页', '--until', 'v1.1.0', '--quote', '这个先不修，下版处理', '--by', 'xiaolin', '--at', at('17'))
+  assert.match(r.ok('stage', 'check', ...V, '--stage', 'test', '--check', 'a|ok|b', '--by', 'ai', '--at', at('18')), /门控通过/)
+  const d = r.state().versions[0].defects
+  assert.equal(d[0].status, 'closed'); assert.equal(d[0].reopened, 1); assert.equal(d[0].assignee, 'azhe'); assert.equal(d[0].build, 'b13'); assert.equal(d[1].waiver.until, 'v1.1.0')
+  assert.match(r.ok('status'), /缺陷：未关闭 0 条 · 已关闭 1 · 豁免 1/)
+  assert.match(r.ok('defect', 'list', ...V), /BUG-zhouzhou-001 \| P1 \| 已关闭（退回 1 次）/)
+})
+
+test('the same ledger number registered twice on two branches keeps both files and flags the later one', () => {
+  const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00'); r.ok('whoami', '--set', 'azhe'); r.commit('init')
+  const open = (title, at) => r.ok('defect', 'open', '--version', 'v1.0.0', '--title', title, '--severity', 'P2', '--found-in', 'self_test', '--by', 'ai', ...(at ? ['--at', at] : []))
+  r.g('checkout', '-q', '-b', 'a'); open('台式机上登记的', '2026-10-02T09:00'); r.commit('a')
+  r.g('checkout', '-q', 'main'); r.g('checkout', '-q', '-b', 'b'); offline(r, 'a', () => open('笔记本上登记的', '2026-10-02T10:00')); r.commit('b')
+  const v = r.state().versions[0]
+  assert.equal(v.defects.length, 1); assert.equal(v.defects[0].title, '台式机上登记的'); assert.match(v.conflicts[0].why, /编号 BUG-azhe-001 已经被占用/)
+  r.ok('event', 'void', '--target', v.conflicts[0].id, '--reason', '撞号，重新登记', '--by', 'ai')
+  assert.match(open('笔记本上登记的'), /BUG-azhe-002/)
+  assert.match(r.ok('check'), /检查通过/)
 })

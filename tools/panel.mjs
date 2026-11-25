@@ -8,7 +8,7 @@ import { isAbsolute, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { git, isoIn, profilePaths, readAll, readDefs, readProfile, writeEvent } from './lib/store.mjs'
 import { renderCockpit } from './lib/cockpit.mjs'
-import { CONFIG_STATUS, FIXED_HUMAN, FLOWS, MODES, STAGES, STAGE_NAME, dayIn, derive } from './lib/derive.mjs'
+import { CONFIG_STATUS, DEFECT_FOUND, DEFECT_NEXT, DEFECT_STATUS, FIXED_HUMAN, FLOWS, ITEM_STATUS, MODES, STAGES, STAGE_NAME, dayIn, derive } from './lib/derive.mjs'
 
 class Fail extends Error {}
 const fail = (msg) => { throw new Fail(msg) }
@@ -49,6 +49,39 @@ function versionOf(c, f) {
   return c.state.versions.find((v) => v.id === id) ?? fail(`版本 ${id} 不存在。已有版本：${c.state.versions.map((v) => v.id).join('、') || '（还没有）'}`)
 }
 
+/**
+ * Next ledger number. Each member counts on their own (BUG-lin-003), so people working on different branches never
+ * compete for a number. Without a known operator the number is a short random code instead.
+ */
+function nextId(c, prefix) {
+  const taken = new Set(c.all.events.map((e) => e.item ?? e.defect).filter(Boolean))
+  if (c.me) {
+    const mine = [...taken].filter((id) => id.startsWith(`${prefix}-${c.me}-`)).map((id) => Number(id.slice(prefix.length + c.me.length + 2))).filter(Number.isInteger)
+    return `${prefix}-${c.me}-${String(Math.max(0, ...mine) + 1).padStart(3, '0')}`
+  }
+  const abc = 'abcdefghjkmnpqrstuvwxyz23456789'
+  for (;;) {
+    const id = `${prefix}-${Array.from(crypto.getRandomValues(new Uint8Array(4)), (b) => abc[b % abc.length]).join('')}`
+    if (!taken.has(id)) return id
+  }
+}
+const itemOf = (v, f) => v.items.find((x) => x.id === need(f, 'item', '需求条目编号')) ?? fail(`${v.id} 没有需求条目 ${f.item}。已有：${v.items.map((x) => x.id).join('、') || '（还没有）'}`)
+const defectOf = (v, f) => v.defects.find((x) => x.id === need(f, 'defect', '缺陷编号')) ?? fail(`${v.id} 没有缺陷 ${f.defect}。已有：${v.defects.map((x) => x.id).join('、') || '（还没有）'}`)
+const openDefects = (v) => v.defects.filter((d) => !['closed', 'waived'].includes(d.status))
+/** Gate conditions the tool can verify by itself from the ledger, so nobody has to count rows. */
+function autoChecks(v, stage) {
+  const out = []
+  if (stage === 'requirements') {
+    const live = v.items.filter((x) => x.status !== 'dropped'), p0 = live.filter((x) => x.priority === 'P0'), draft = p0.filter((x) => x.status === 'draft')
+    out.push({ text: '需求条目已登记，P0 条目全部已确认', ok: live.length > 0 && !draft.length, evidence: !live.length ? '还没有登记需求条目（item add）' : draft.length ? `还是草稿的 P0 条目：${draft.map((x) => `${x.id} ${x.name}`).join('、')}` : `共 ${live.length} 条，P0 ${p0.length} 条均已确认` })
+  }
+  if (['test', 'release'].includes(stage)) {
+    const open = openDefects(v), waived = v.defects.filter((d) => d.status === 'waived')
+    out.push({ text: '登记的缺陷全部已关闭或已豁免', ok: !open.length, evidence: open.length ? `未关闭：${open.map((d) => `${d.id}（${d.severity}，${DEFECT_STATUS[d.status]}）`).join('、')}` : `共 ${v.defects.length} 条，已关闭 ${v.defects.length - waived.length} 条，豁免 ${waived.length} 条` })
+  }
+  return out.map((x, i) => ({ id: `${stage}.auto${i + 1}`, ...x, source: 'script' }))
+}
+
 /** Validate against the replay rules by trying the event out, then write it. */
 function commit(c, scope, fields, f, { byMember = false, freeBy = false } = {}) {
   let by = need(f, 'by', '操作人：成员标识；AI 按流程自己记录的写 ai；当前操作者写 me')
@@ -66,11 +99,15 @@ function commit(c, scope, fields, f, { byMember = false, freeBy = false } = {}) 
     if (v && Date.parse(at) < Date.parse(v.lastEventAt) && !f.backfill) fail(`发生时间早于 ${scope} 已有的最后一条记录（${v.lastEventAt}）。确实是补记历史的话，加 --backfill "补记原因"`)
   }
   const owner = scope === 'project' ? null : c.state.versions.find((x) => x.id === scope)
+  // This working copy holds a version creation that lost a number clash: whatever is written now would land in the
+  // other team's version. The clash has to be settled first.
+  const lost = fields.type !== 'void' && owner?.conflicts.find((x) => x.type === 'version_create' && x.here)
+  if (lost) fail(`版本号 ${scope} 撞号了：生效的是目标为「${owner.goal}」的那个，这边创建的那个（事件 ${lost.id}）没有生效。现在写入会记到对方的版本里。先请使用者决定：这边的版本换哪个号，然后运行 event void --target ${lost.id} 作废这边的创建记录，再用新版本号重新建`)
   const event = { ...fields, ...(owner && fields.type !== 'version_create' ? { create: owner.createId } : {}), at, by, ...(f.backfill ? { backfill: f.backfill } : {}) }
   const trial = { ...event, id: 'trial', scope, recorded_at: nowIso, recorded_by: '-', ...(scope === 'project' ? {} : { version: scope }), src: { branch: '本次写入', state: 'uncommitted' } }
   const events = [...c.all.events, trial].sort((a, b) => Date.parse(a.at) - Date.parse(b.at) || (a.id === 'trial' ? 1 : b.id === 'trial' ? -1 : 0))
   const after = derive(events, c.defs, { now: c.now.toISOString() })
-  const hit = [...after.projectConflicts, ...after.versions.flatMap((v) => v.conflicts)].find((x) => x.id === 'trial')
+  const hit = [...after.projectConflicts, ...after.versions.flatMap((v) => [...v.conflicts, ...v.duplicates])].find((x) => x.id === 'trial')
   if (hit) fail(hit.why)
   const written = writeEvent(c.root, scope, event, { now: c.now, tz })
   return `已记录 ${written.type}（${written.id}）。请提交并推送，否则别人看不到。`
@@ -131,8 +168,11 @@ const commands = {
     const flow = oneOf(f.flow ?? 'standard', Object.keys(FLOWS), '流程 --flow')
     const owners = { product: member(c, need(f, 'product', '产品负责人'), '产品负责人'), engineering: member(c, need(f, 'engineering', '研发负责人'), '研发负责人'), testing: member(c, need(f, 'testing', '测试负责人'), '测试负责人'), ...(f.ops ? { ops: member(c, f.ops, '运维负责人') } : {}) }
     if (f.planned && !/^\d{4}-\d\d-\d\d$/.test(f.planned)) fail('计划发布日格式应为 2026-11-28')
-    const kind = oneOf(f.kind ?? (flow === 'hotfix' ? 'patch' : 'minor'), ['major', 'minor', 'patch'], '版本大小 --kind')
-    if (flow === 'hotfix' && (kind !== 'patch' || !f.fixes)) fail('热修复流程只用于修已发布版本的生产缺陷：版本号必须是补丁号（--kind patch），并用 --fixes 写明修的生产缺陷编号。其他版本用常规流程')
+    // The size of a version follows from its number unless stated otherwise.
+    const [, minor, patch] = id.slice(1).split('.').map(Number), byNumber = patch ? 'patch' : minor ? 'minor' : 'major'
+    const kind = oneOf(f.kind ?? byNumber, ['major', 'minor', 'patch'], '版本大小 --kind')
+    if (flow === 'hotfix' && !c.state.versions.some((v) => v.status === 'released') && !c.state.deploys.some((d) => d.env === 'production')) fail('热修复流程只用于修已发布版本的生产缺陷，现在还没有已发布的版本，也没有生产部署记录。新功能用常规流程')
+    if (flow === 'hotfix' && (kind !== 'patch' || byNumber !== 'patch' || !f.fixes)) fail('热修复流程只用于修已发布版本的生产缺陷：版本号必须是补丁号（如 v1.0.0 的热修复是 v1.0.1），并用 --fixes 写明修的生产缺陷编号。其他版本用常规流程')
     return commit(c, id, { type: 'version_create', flow, kind, goal: f.goal ?? '待确认', base: f.base ?? null, branch: f.branch ?? null, planned_release: f.planned ?? null, owners, ...(f.fixes ? { fixes: list(f.fixes) } : {}) }, f)
   },
   'version update'(c, f) {
@@ -172,8 +212,9 @@ const commands = {
       return { id: `${stage}.${i + 1}`, text, ok: ok === 'ok', evidence, source: oneOf(source ?? 'manual', ['script', 'manual'], '核对方式') }
     })
     if (!checks.length) fail('至少要有一条 --check "条件|ok 或 no|依据|script 或 manual"')
+    checks.unshift(...autoChecks(v, stage))
     const result = checks.every((x) => x.ok) ? 'pass' : 'fail'
-    return commit(c, v.id, { type: 'gate_check', stage, result, checks }, f) + (result === 'fail' ? `\n门控未通过：${checks.filter((x) => !x.ok).map((x) => x.text).join('；')}` : '\n门控通过。')
+    return commit(c, v.id, { type: 'gate_check', stage, result, checks }, f) + (result === 'fail' ? `\n门控未通过：${checks.filter((x) => !x.ok).map((x) => `${x.text}（${x.evidence}）`).join('；')}` : '\n门控通过。')
   },
   'stage request'(c, f) { const v = versionOf(c, f); return commit(c, v.id, { type: 'signoff_request', stage: oneOf(f.stage, FLOWS[v.flow], '阶段'), to: list(need(f, 'to', '请谁签收')).map((id) => member(c, id, '签收人')), summary: need(f, 'summary', '本阶段摘要') }, f) },
   'stage complete'(c, f) {
@@ -216,9 +257,46 @@ const commands = {
     if (env === 'production' && ['deploy', 'rollback'].includes(action) || f['approved-by']) e.approved = { by: member(c, need(f, 'approved-by', '谁批准的'), '批准人'), quote: need(f, 'quote', '批准人的原话') }
     return commit(c, 'project', e, f)
   },
+  'item add'(c, f) {
+    const v = versionOf(c, f), id = nextId(c, 'FEAT')
+    return commit(c, v.id, { type: 'item_add', item: id, module: f.module ?? null, name: need(f, 'name', '功能描述，一句话'), priority: oneOf(f.priority, ['P0', 'P1', 'P2'], '优先级 --priority'), ...(f.source ? { source: f.source } : {}) }, f) + `\n编号：${id}（草稿）。在 requirements.md 的功能清单里用这个编号。`
+  },
+  'item confirm'(c, f) { const v = versionOf(c, f), it = itemOf(v, f); return commit(c, v.id, { type: 'item_status', item: it.id, status: 'confirmed', quote: need(f, 'quote', '确认人的原话') }, f, { byMember: true }) },
+  'item change'(c, f) { const v = versionOf(c, f), it = itemOf(v, f); return commit(c, v.id, { type: 'item_status', item: it.id, status: 'changed', ref: need(f, 'ref', '对应的变更编号（CHANGES.md）'), ...(f.note ? { note: f.note } : {}) }, f) },
+  'item drop'(c, f) { const v = versionOf(c, f), it = itemOf(v, f); return commit(c, v.id, { type: 'item_status', item: it.id, status: 'dropped', reason: need(f, 'reason', '移出原因'), quote: need(f, 'quote', '决定人的原话') }, f, { byMember: true }) },
+  'item list'(c, f) {
+    const v = versionOf(c, f)
+    return v.items.length ? v.items.map((x) => `${x.id} | ${x.priority} | ${ITEM_STATUS[x.status]}${x.ref ? '（' + x.ref + '）' : ''} | ${x.module ? x.module + '：' : ''}${x.name}`).join('\n') : `${v.id} 还没有登记需求条目。`
+  },
+  'defect open'(c, f) {
+    const v = versionOf(c, f), id = nextId(c, 'BUG')
+    const found = oneOf(f['found-in'], Object.keys(DEFECT_FOUND), '发现阶段 --found-in')
+    return commit(c, v.id, { type: 'defect_open', defect: id, title: need(f, 'title', '一句话描述现象'), severity: oneOf(f.severity, ['P0', 'P1', 'P2', 'P3'], '严重程度 --severity'), found_in: found, ...(f.module ? { module: f.module } : {}), ...(f.case ? { case: f.case } : {}) }, f) + `\n编号：${id}（待修复）。在 defects.md 里用这个编号写复现步骤。`
+  },
+  'defect status'(c, f) {
+    const v = versionOf(c, f), d = defectOf(v, f), to = oneOf(f.to, ['fixing', 'fixed', 'verifying', 'open'], '改为 --to')
+    if (!DEFECT_NEXT[d.status].includes(to)) fail(`缺陷 ${d.id} 现在是「${DEFECT_STATUS[d.status]}」，不能直接改为「${DEFECT_STATUS[to]}」。可以改为：${DEFECT_NEXT[d.status].filter((x) => x !== 'closed').map((x) => DEFECT_STATUS[x]).join('、')}${DEFECT_NEXT[d.status].includes('closed') ? '，或用 defect close 关闭' : ''}`)
+    if (to === 'open') need(f, 'note', '退回或重新打开的原因')
+    return commit(c, v.id, { type: 'defect_status', defect: d.id, status: to, ...(f.assignee ? { assignee: member(c, f.assignee, '修复人') } : {}), ...(f.build ? { build: f.build } : {}), ...(f.note ? { note: f.note } : {}) }, f)
+  },
+  'defect close'(c, f) {
+    const v = versionOf(c, f), d = defectOf(v, f)
+    if (d.status !== 'verifying') fail(`缺陷 ${d.id} 现在是「${DEFECT_STATUS[d.status]}」。复测通过并改为「待验收」（defect status --to verifying）后，才能由人验收关闭`)
+    return commit(c, v.id, { type: 'defect_status', defect: d.id, status: 'closed', verifier: member(c, need(f, 'verifier', '验收人'), '验收人'), quote: need(f, 'quote', '验收人的原话') }, f)
+  },
+  'defect waive'(c, f) {
+    const v = versionOf(c, f), d = defectOf(v, f)
+    return commit(c, v.id, { type: 'defect_waive', defect: d.id, scope: need(f, 'scope', '豁免范围：只在什么条件下可以带着它走'), quote: need(f, 'quote', '豁免人的原话'), ...(f.until ? { until: f.until } : {}), ...(f.decision ? { decision: f.decision } : {}) }, f, { byMember: true })
+  },
+  'defect list'(c, f) {
+    const v = versionOf(c, f), nm = (id) => c.state.members.find((m) => m.id === id)?.name ?? id
+    return v.defects.length ? v.defects.map((d) => `${d.id} | ${d.severity} | ${DEFECT_STATUS[d.status]}${d.reopened ? `（退回 ${d.reopened} 次）` : ''} | ${DEFECT_FOUND[d.foundIn]}发现，${d.status === 'closed' ? `用了 ${d.days} 天` : `已 ${d.days} 天`}${d.assignee ? '，修复 ' + nm(d.assignee) : ''}${d.case ? '，用例 ' + d.case : ''} | ${d.title}`).join('\n') : `${v.id} 还没有登记缺陷。`
+  },
   'downstream-check'(c, f) {
     const v = versionOf(c, f), target = need(f, 'target', '被确认的在途版本')
-    if (!c.state.versions.some((x) => x.id === target)) fail(`版本 ${target} 不存在`)
+    const t = c.state.versions.find((x) => x.id === target) ?? fail(`版本 ${target} 不存在`)
+    if (t.id === v.id) fail('--target 要写另一个在途版本，不是本版本')
+    if (['released', 'abandoned'].includes(t.status)) fail(`${target} 已经${t.status === 'released' ? '发布' : '放弃'}，不属于在途版本，不用确认。已发布的版本不再改动`)
     const result = oneOf(f.result, ['merged', 'partial', 'not_needed', 'deferred'], '结论 --result')
     return commit(c, v.id, { type: 'downstream_check', target, result, evidence: need(f, 'evidence', '依据'), confirmed: { by: member(c, need(f, 'confirmed-by', '谁确认的'), '确认人'), quote: need(f, 'quote', '确认人的原话') } }, f)
   },
@@ -319,6 +397,8 @@ function statusText(c, only) {
     lines.push(`  进度：${v.stages.map((x) => SHORT[x.key] + MARK[x.state]).join(' ')}${v.rollbacks.length ? `（回退 ${v.rollbacks.length} 次）` : ''}`)
     if (v.current?.check) lines.push(`  门控核对：${md(v.current.check.at)} ${v.current.check.result === 'pass' ? '通过' : '未通过：' + v.current.check.checks.filter((x) => !x.ok).map((x) => x.text).join('；')}`)
     if (v.waiting) lines.push(`  等签收：已请 ${v.waiting.to.map(nm).join('、')} 签收，等了 ${v.waiting.days} 天`)
+    if (v.items.length) { const n = (st) => v.items.filter((x) => x.status === st).length; lines.push(`  需求条目：${v.items.length - n('dropped')} 条（${[['confirmed', '已确认'], ['changed', '已变更'], ['draft', '草稿']].filter(([k]) => n(k)).map(([k, t]) => `${t} ${n(k)}`).join('，')}${n('dropped') ? `；另有 ${n('dropped')} 条已移出` : ''}）`) }
+    if (v.defects.length) { const open = openDefects(v), w = v.defects.filter((d) => d.status === 'waived').length; lines.push(`  缺陷：未关闭 ${open.length} 条${open.length ? `（${['P0', 'P1', 'P2', 'P3'].filter((p) => open.some((d) => d.severity === p)).map((p) => `${p} ${open.filter((d) => d.severity === p).length}`).join('，')}）` : ''} · 已关闭 ${v.defects.length - open.length - w}${w ? ` · 豁免 ${w}` : ''}`) }
     for (const b of v.blocks) lines.push(`  阻塞 ${b.days} 天（归 ${nm(b.owner)}）：${b.text}`)
     if (s.online.deployedNotReleased.includes(v.id)) lines.push('  已部署到生产，发布完成还没签收')
     for (const m of v.pendingMerges) lines.push(`  ⚠ 还欠一次合入：${m.from} 的改动${m.result === 'partial' ? '只合入了一部分' : '暂缓合入'}（${m.evidence}）`)
@@ -369,6 +449,19 @@ const HELP = `用法：node tools/panel.mjs <命令> [--参数 值 ...]
   stage request --to a,b --summary --by
   stage complete --signer --quote --by                         （之前要有通过的 stage check 和之后的 stage request）
   stage rollback --from --to --reason --quote [--ref] --by      （不用 --stage）
+
+需求条目和缺陷（都要 --version；编号由命令分配：成员标识 + 他自己的流水号，如 BUG-lin-003）
+  item add --name --priority P0|P1|P2 [--module --source] --by
+  item confirm --item --quote --by                             （--by 是确认的成员）
+  item change --item --ref 变更编号 [--note] --by
+  item drop --item --reason --quote --by                       （移出本版本，--by 是决定的成员）
+  item list
+  defect open --title --severity P0|P1|P2|P3 --found-in self_test|test|prod_verify|acceptance [--module --case] --by
+  defect status --defect --to fixing|fixed|verifying|open [--assignee --build --note] --by
+      （fixed 已修复待复测，verifying 复测通过待人验收；open 是退回或重新打开，要写 --note）
+  defect close --defect --verifier --quote --by                （人验收通过）
+  defect waive --defect --scope --quote [--until --decision] --by   （--by 是豁免的成员）
+  defect list
 
 其他
   note --version --text --by

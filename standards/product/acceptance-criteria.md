@@ -4,7 +4,7 @@
 > **副标准**：[IEEE 29148 - Software Acceptance Testing](https://standards.ieee.org/ieee/29148/6938/)
 > **补充**：参见 [需求文档模板](../../versions/v1.0.0/product/requirements.md) 了解验收标准在需求文档中的位置
 
-> **术语说明**：本页的「验收标准（Acceptance Criteria）」指需求级的完成判断依据，写在 `requirements.md` 每个模块的「验收标准」中；面板中的 `AC-xxx` 是发布后生产验收（SOP-12）的验收用例编号，二者不是同一个概念。
+> **术语说明**：本页的「验收标准（Acceptance Criteria）」指需求级的完成判断依据，写在 `requirements.md` 每个模块的「验收标准」中；面板中的 `AC-{成员标识}-xxx` 是发布后生产验收（SOP-12）的验收用例编号，二者不是同一个概念。
 
 ---
 
@@ -21,7 +21,7 @@
 
 ## Given-When-Then 格式（BDD 标准）
 
-【推荐】验收标准条目使用 Given-When-Then 句式，确保可执行。面板的 `requirements.md` 按正向 / 异常 / 边界 / 权限四类场景，以 `- [ ]` 清单列出验收标准并回填 `<!-- TC-xxx -->`，结构以该模板为准，GWT 用于写清每一条的内容：
+【推荐】验收标准条目使用 Given-When-Then 句式，确保可执行。面板的 `requirements.md` 按正向 / 异常 / 边界 / 权限四类场景，以 `- [ ]` 清单列出验收标准并回填 `<!-- TC-{成员标识}-xxx -->`，结构以该模板为准，GWT 用于写清每一条的内容：
 
 ```
 Given（前提条件）：描述初始状态和上下文
@@ -92,12 +92,12 @@ Scenario: 上传不支持的文件格式
 ```
 验收标准（Given-When-Then）
          ↓
-测试用例（Test Case，记录在 versions/{ver}/testing/test-cases.md，编号 TC-xxx，四要素必填）
+测试用例（Test Case，记录在 versions/{ver}/testing/test-cases.md，编号 TC-{成员标识}-xxx，四要素必填）
          ↓
 自动化测试脚本（pytest / JUnit / Jest）
 ```
 
-测试用例编写后，按 SOP-03 回填 `requirements.md` 各验收标准后的 `<!-- TC-xxx -->` 注释和模块的「测试覆盖」字段，保持需求与用例双向可追溯。
+测试用例编写后，按 SOP-03 回填 `requirements.md` 各验收标准后的 `<!-- TC-{成员标识}-xxx -->` 注释和模块的「测试覆盖」字段，保持需求与用例双向可追溯。
 
 **示例映射：**
 

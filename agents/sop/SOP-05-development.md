@@ -32,8 +32,8 @@
 **完成标志**：代码已 push 到远端，相关 P0 用例自测通过，驱动面板没有新增代码文件（缺陷状态等文档照常更新）
 
 **示例：Bug 修复完成后**
-> 除代码 push 外，还需更新缺陷文件：
-> defects.md 中 BUG-001 状态改为：🕐 待验收
+> 除代码 push 外，还要记录缺陷状态并补叙述：
+> 在 defects.md 的 BUG-xiaozhou-001「修复历程」追加一条；运行 `defect status --version v1.0.0 --defect BUG-xiaozhou-001 --to fixed --build {构建号} --by ai`（已修复待复测）。复测和验收见 SOP-03
 
 **反例：**
 > ❌ 在驱动面板根目录创建 src/ 或任何代码文件

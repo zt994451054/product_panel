@@ -65,13 +65,19 @@ for (const item of ['product_arch', 'competitor_analysis', 'user_research', 'bus
 const V = ['--version', 'v1.0.0']
 panel('version', 'new', ...V, '--goal', '客户在线预约时段，管理员管理时段', '--kind', 'major', '--product', 'xiaolin', '--engineering', 'xiaowang', '--testing', 'xiaozhou', '--by', 'xiaolin', '--at', '2026-10-08T09:30')
 confirmed('version_owners', 'xiaolin', '08')
-const done = (stage, from, to, signer, quote) => {
+const done = (stage, from, to, signer, quote, during = () => {}) => {
   panel('stage', 'enter', ...V, '--stage', stage, '--by', 'ai', '--at', `2026-10-${from}T11:00`)
+  during()
   panel('stage', 'check', ...V, '--stage', stage, '--check', '门控条件已逐条核对|ok|见本阶段文档|manual', '--by', 'ai', '--at', `2026-10-${to}T15:00`)
   panel('stage', 'request', ...V, '--stage', stage, '--to', signer, '--summary', '本阶段摘要与门控核对结果', '--by', 'ai', '--at', `2026-10-${to}T16:00`)
   panel('stage', 'complete', ...V, '--stage', stage, '--signer', signer, '--quote', quote, '--by', 'ai', '--at', `2026-10-${to}T17:00`)
 }
-done('requirements', '08', '13', 'xiaolin', '需求确认')
+// The function list of requirements.md, registered and confirmed the way SOP-01 asks for.
+done('requirements', '08', '13', 'xiaolin', '需求确认', () => {
+  const ids = [['时段预约', '客户查看可预约时段并完成预约'], ['时段管理', '管理员创建、关闭可预约时段']]
+    .map(([module, name]) => panel('item', 'add', ...V, '--module', module, '--name', name, '--priority', 'P0', '--by', 'ai', '--at', '2026-10-09T10:00').match(/编号：(\S+?)（/)[1])
+  for (const id of ids) panel('item', 'confirm', ...V, '--item', id, '--quote', '这条确认', '--by', 'xiaolin', '--at', '2026-10-12T10:00')
+})
 done('design', '14', '19', 'xiaolin', '设计确认')
 panel('stage', 'enter', ...V, '--stage', 'tech', '--by', 'ai', '--at', '2026-10-20T09:00')
 panel('note', ...V, '--text', '方案、接口、数据库设计已写完', '--by', 'ai', '--at', '2026-10-20T18:00')

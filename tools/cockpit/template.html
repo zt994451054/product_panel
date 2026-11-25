@@ -389,6 +389,15 @@ function renderData() {
   const rbs = m.rollbacks.map((r) => `<tr><td>${md(r.at)}</td><td><b>${r.version}</b></td><td>${SN[r.from]} → ${SN[r.to]}</td><td>${esc(r.reason)}${r.ref ? '（' + esc(r.ref) + '）' : ''}</td></tr>`).join('')
   const rps = m.replans.map((r) => `<tr><td>${md(r.at)}</td><td><b>${r.version}</b></td><td>${md(r.from)} → ${md(r.to)}</td><td>${esc(r.reason)}</td></tr>`).join('')
   const stuck = [...m.holds.map((h) => `<tr><td><b>${h.version}</b></td><td><span class="pill gray">挂起</span></td><td class="r num">${h.days}</td><td>${esc(h.reason)}；恢复条件：${esc(h.resumeWhen)}</td></tr>`), ...m.blocks.map((b) => `<tr><td><b>${b.version}</b></td><td><span class="pill red">阻塞</span></td><td class="r num">${b.days}</td><td>${esc(b.text)}（归 ${nm(b.owner)}）</td></tr>`)].join('')
+  const iv = DATA.versions.filter((v) => v.items.length), dv = DATA.versions.filter((v) => v.defects.length)
+  const seg = (n, color, tip) => (n ? `<i style="flex:${n};background:${color}" data-tip="${tip} ${n}"></i>` : '')
+  const itemBars = iv.map((v) => { const n = (s) => v.items.filter((x) => x.status === s).length, live = v.items.length - n('dropped')
+    return `<span class="lab"><b>${v.id}</b></span><div style="display:flex;align-items:center;gap:8px"><div class="sbar" style="width:62%">${seg(n('confirmed'), 'var(--green)', '已确认')}${seg(n('changed'), 'var(--amber)', '已变更')}${seg(n('draft'), 'var(--idle)', '草稿')}</div><em class="sub">已确认 ${n('confirmed') + n('changed')} / ${live}${n('dropped') ? '，移出 ' + n('dropped') : ''}</em></div>` }).join('')
+  const defBars = dv.map((v) => { const n = (...s) => v.defects.filter((d) => s.includes(d.status)).length
+    return `<span class="lab"><b>${v.id}</b></span><div style="display:flex;align-items:center;gap:8px"><div class="sbar" style="width:62%">${seg(n('open'), 'var(--coral)', '待修复')}${seg(n('fixing', 'fixed', 'verifying'), 'var(--amber)', '处理中')}${seg(n('closed'), 'var(--green)', '已关闭')}${seg(n('waived'), 'var(--idle)', '已豁免')}</div><em class="sub">未关闭 ${v.defects.filter(isOpen).length} / ${v.defects.length}</em></div>` }).join('')
+  const allDef = DATA.versions.flatMap((v) => v.defects.map((d) => ({ ...d, version: v.id }))), closed = allDef.filter((d) => d.status === 'closed')
+  const openDef = allDef.filter(isOpen).sort((a, b) => (a.severity < b.severity ? -1 : a.severity > b.severity ? 1 : b.days - a.days))
+    .map((d) => `<tr><td><code>${esc(d.id)}</code></td><td><b>${d.version}</b></td><td><span class="pill ${SEV[d.severity]}">${d.severity}</span></td><td><span class="pill ${DEF_ST[d.status][1]}">${DEF_ST[d.status][0]}</span></td><td class="r num">${d.days}</td><td>${esc(d.title)}</td></tr>`).join('')
   $('#data').innerHTML = `
     <div class="kpis">${kpi('var(--amber)', m.rollbacks.length, '次阶段回退', m.rollbacks.map((r) => r.version + ' ' + SN[r.from] + '→' + SN[r.to]).join('；') || '没有回退')}
       ${kpi('var(--coral)', m.slipDays + '<small style="font-size:22px"> 天</small>', '改期累计延后', m.replans.length + ' 次改期')}
@@ -398,6 +407,11 @@ function renderData() {
       <div class="card"><h2>各版本在每个阶段花了多久</h2><p class="sub">一条是一个版本，色块是阶段，含回退后重做的时间，不含挂起。</p><div class="legend" style="margin-bottom:12px">${DATA.flows.standard.map((s) => `<span><i class="sw" style="background:${SCOL[s]};border-radius:3px"></i>${SHORT[s]}</span>`).join('')}</div><div class="bars">${stack || '<span class="empty">还没有进入阶段的版本。</span>'}</div></div>
       <div class="card"><h2>等签收要多久</h2><p class="sub">按签收人。从 AI 说「做完了请签收」到这个人确认。</p><div class="bars">${waits || '<span class="empty">还没有签收记录。</span>'}</div></div>
     </div>
+    <div class="grid g2">
+      <div class="card"><h2>需求确认了多少</h2><p class="sub">按版本。一格是功能清单的一行。</p><div class="legend" style="margin-bottom:12px"><span><i class="sw" style="background:var(--green);border-radius:3px"></i>已确认</span><span><i class="sw" style="background:var(--amber);border-radius:3px"></i>已变更</span><span><i class="sw" style="background:var(--idle);border-radius:3px"></i>草稿</span></div><div class="bars">${itemBars || '<span class="empty">还没有登记需求条目。</span>'}</div></div>
+      <div class="card"><h2>缺陷处理到哪了</h2><p class="sub">按版本。${closed.length ? '已关闭的缺陷平均用了 ' + dur(closed.reduce((n, d) => n + d.hours, 0) / closed.length) + '。' : '还没有关闭过缺陷。'}</p><div class="legend" style="margin-bottom:12px"><span><i class="sw" style="background:var(--coral);border-radius:3px"></i>待修复</span><span><i class="sw" style="background:var(--amber);border-radius:3px"></i>处理中</span><span><i class="sw" style="background:var(--green);border-radius:3px"></i>已关闭</span><span><i class="sw" style="background:var(--idle);border-radius:3px"></i>已豁免</span></div><div class="bars">${defBars || '<span class="empty">还没有登记缺陷。</span>'}</div></div>
+    </div>
+    <div class="card"><h2>还没关闭的缺陷</h2><p class="sub">全部版本，严重的在前</p><table><thead><tr><th>编号</th><th>版本</th><th>严重</th><th>状态</th><th class="r">已持续（天）</th><th>标题</th></tr></thead><tbody>${openDef || '<tr><td colspan="6" class="empty">没有</td></tr>'}</tbody></table></div>
     <div class="grid g2e">
       <div class="card"><h2>阶段回退</h2><p class="sub">退回去重做的记录</p><table><thead><tr><th>日期</th><th>版本</th><th>从哪退到哪</th><th>原因</th></tr></thead><tbody>${rbs || '<tr><td colspan="4" class="empty">没有</td></tr>'}</tbody></table></div>
       <div class="card"><h2>改期</h2><p class="sub">计划发布日每改一次记一条</p><table><thead><tr><th>日期</th><th>版本</th><th>计划发布日</th><th>原因</th></tr></thead><tbody>${rps || '<tr><td colspan="4" class="empty">没有</td></tr>'}</tbody></table></div>
@@ -407,7 +421,7 @@ function renderData() {
 }
 
 /* ---------- 版本详情 ---------- */
-const EV = { version_create: '新建版本', version_update: '修改版本信息', replan: '改期', onboard: '声明起点', stage_enter: '进入阶段', progress: '进展说明', block: '出现阻塞', unblock: '阻塞解除', gate_check: '门控核对', signoff_request: '请求签收', stage_complete: '签收', stage_rollback: '阶段回退', hold: '挂起', resume: '恢复', abandon: '放弃', downstream_check: '确认在途版本' }
+const EV = { version_create: '新建版本', version_update: '修改版本信息', replan: '改期', onboard: '声明起点', stage_enter: '进入阶段', progress: '进展说明', block: '出现阻塞', unblock: '阻塞解除', gate_check: '门控核对', signoff_request: '请求签收', stage_complete: '签收', stage_rollback: '阶段回退', hold: '挂起', resume: '恢复', abandon: '放弃', downstream_check: '确认在途版本', item_add: '登记需求条目', item_status: '需求条目状态', defect_open: '登记缺陷', defect_status: '缺陷状态', defect_waive: '豁免缺陷' }
 function evText(x) {
   const r = x.raw
   switch (r.type) {
@@ -420,10 +434,20 @@ function evText(x) {
     case 'stage_rollback': return SN[r.from] + ' → ' + SN[r.to] + '：' + r.reason + (r.ref ? '（' + r.ref + '）' : '')
     case 'progress': case 'block': return r.text
     case 'hold': return r.reason + '；恢复条件：' + r.resume_when
+    case 'item_add': return r.item + '（' + r.priority + '）' + r.name
+    case 'item_status': return r.item + ' → ' + ITEM_ST[r.status][0] + (r.quote ? '：「' + r.quote + '」' : r.ref ? '（' + r.ref + '）' : '')
+    case 'defect_open': return r.defect + '（' + r.severity + '）' + r.title
+    case 'defect_status': return r.defect + ' → ' + DEF_ST[r.status][0] + (r.quote ? '，' + nm(r.verifier) + '：「' + r.quote + '」' : r.note ? '：' + r.note : '')
+    case 'defect_waive': return r.defect + ' 豁免，' + nm(r.by) + '：「' + r.quote + '」（范围：' + r.scope + '）'
     case 'downstream_check': return r.target + '：' + ({ merged: '已合入', partial: '部分合入', not_needed: '不需要', deferred: '暂缓' }[r.result]) + '，' + r.evidence
     default: return ''
   }
 }
+const ITEM_ST = { draft: ['草稿', 'gray'], confirmed: ['已确认', 'green'], changed: ['已变更', 'amber'], dropped: ['已移出', 'gray'] }
+const DEF_ST = { open: ['待修复', 'red'], fixing: ['修复中', 'amber'], fixed: ['已修复待复测', 'blue'], verifying: ['待验收', 'blue'], closed: ['已关闭', 'green'], waived: ['已豁免', 'gray'] }
+const FOUND = { self_test: '开发自测', test: '测试', prod_verify: '生产业务验证', acceptance: '生产验收' }
+const SEV = { P0: 'red', P1: 'amber', P2: 'blue', P3: 'gray' }
+const isOpen = (d) => !['closed', 'waived'].includes(d.status)
 function renderVer() {
   const v = DATA.versions.find((x) => x.id === state.ver) ?? DATA.versions[0]
   if (!v) { $('#ver').innerHTML = '<button class="back" data-v="home">← 返回总览</button><div class="card"><div class="empty">还没有版本。</div></div>'; return }
@@ -443,6 +467,8 @@ function renderVer() {
     ${conf ? `<div class="card"><h2>矛盾的记录</h2><p class="sub">这些事件没有生效。需要人决定怎么处理，脚本不会自动裁决。</p>${conf}</div>` : ''}
     <div class="grid g2"><div class="card"><h2>阶段</h2><p class="sub">一个阶段有两段时间，说明中间回退过</p><table><thead><tr><th>阶段</th><th>状态</th><th>起止</th><th class="r">时长</th><th>签收</th></tr></thead><tbody>${rows}</tbody></table></div>
       <div class="card"><h2>当前阶段的门控核对</h2><p class="sub">${v.check ? md(v.check.at) + ' 核对' : v.current ? v.current.name : '没有进行中的阶段'}</p>${chk}</div></div>
+    ${v.items.length ? `<div class="card"><h2>需求条目</h2><p class="sub">功能清单的每一行。正文在需求文档里，状态在这里。</p><table><thead><tr><th>编号</th><th>优先级</th><th>状态</th><th>功能</th><th>确认</th></tr></thead><tbody>${v.items.map((x) => `<tr><td><code>${esc(x.id)}</code></td><td>${x.priority}</td><td><span class="pill ${ITEM_ST[x.status][1]}">${ITEM_ST[x.status][0]}</span>${x.ref ? ' ' + esc(x.ref) : ''}</td><td>${x.module ? '<b>' + esc(x.module) + '</b>　' : ''}${esc(x.name)}</td><td>${x.confirmed ? '<b>' + nm(x.confirmed.by) + '</b> ' + md(x.confirmed.at) + '：「' + esc(x.confirmed.quote) + '」' : '—'}</td></tr>`).join('')}</tbody></table></div>` : ''}
+    ${v.defects.length ? `<div class="card"><h2>缺陷</h2><p class="sub">复现步骤在缺陷文档里，状态在这里。关闭必须由人验收。</p><table><thead><tr><th>编号</th><th>严重</th><th>状态</th><th>标题</th><th>发现于</th><th class="r">天数</th><th>修复 / 验收</th></tr></thead><tbody>${v.defects.map((d) => `<tr><td><code>${esc(d.id)}</code></td><td><span class="pill ${SEV[d.severity]}">${d.severity}</span></td><td><span class="pill ${DEF_ST[d.status][1]}">${DEF_ST[d.status][0]}</span>${d.reopened ? ' 退回 ' + d.reopened + ' 次' : ''}</td><td>${esc(d.title)}${d.waiver ? '<br><span class="sub">豁免：' + nm(d.waiver.by) + '「' + esc(d.waiver.quote) + '」，范围：' + esc(d.waiver.scope) + (d.waiver.until ? '，最迟 ' + esc(d.waiver.until) + ' 解决' : '') + '</span>' : ''}</td><td>${FOUND[d.foundIn]}</td><td class="r num">${d.days}</td><td>${d.assignee ? nm(d.assignee) : '—'} / ${d.verifier ? nm(d.verifier) : '—'}</td></tr>`).join('')}</tbody></table></div>` : ''}
     <div class="card"><h2>事件记录</h2><p class="sub">共 ${v.events.length} 条，最新的在上面。每条是一个文件，写入后不改。</p><table><thead><tr><th>时间</th><th>事件</th><th>内容</th><th>操作人</th><th>来自分支</th></tr></thead><tbody>${evs}</tbody></table></div>`
 }
 

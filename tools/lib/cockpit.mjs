@@ -54,6 +54,7 @@ export function cockpitData(c) {
     check: v.current?.check ? { at: loc(v.current.check.at), result: v.current.check.result, checks: v.current.check.checks } : null,
     between: v.next, waiting: v.waiting && { ...v.waiting, since: loc(v.waiting.since) },
     blocks: v.blocks.map((b) => ({ ...b, at: loc(b.at) })),
+    items: v.items.map((x) => ({ ...x, at: loc(x.at) })), defects: v.defects.map((d) => ({ ...d, at: loc(d.at), closedAt: loc(d.closedAt) })),
     hold: v.hold && { ...v.hold, since: loc(v.hold.since) }, holds: v.holds.map((h) => ({ from: loc(h.from), to: loc(h.to) })),
     progress: v.progress && { text: v.progress.text, at: loc(v.progress.at) },
     rollbacks: v.rollbacks.map((r) => ({ ...r, at: loc(r.at) })), downstream: v.downstream,
@@ -84,6 +85,10 @@ export function cockpitData(c) {
     if (v.current?.stalled) add([v.owners.product], '停滞', v.id, `${v.id} 的「${v.current.name}」已持续 ${v.current.days} 天`, `超过 ${v.current.threshold} 天的停滞基准`, `${v.id} 的${v.current.name}卡了 ${v.current.days} 天。帮我列出卡住的事，分成「进入下一阶段必须完成」和「可以往后放」。`)
     if (v.overdueDays) add([v.owners.product], '已逾期', v.id, `${v.id} 已超过计划发布日 ${v.overdueDays} 天`, `计划 ${v.planned}`, `${v.id} 已经过了计划发布日。帮我评估还要多久，给一个新的发布日期建议，我确认后再改期。`)
     if (v.between) add([v.owners.product], '可以往下走', v.id, `${v.id} 上一阶段已签收，还没进入「${v.between.name}」`, '没有阶段在进行中', `${v.id} 进入${v.between.name}阶段，开始吧。`)
+    const toVerify = v.defects.filter((d) => d.status === 'verifying')
+    if (toVerify.length) add([v.owners.testing], '等你验收', v.id, `${v.id} 有 ${toVerify.length} 个缺陷修好了，等你验收`, toVerify.map((d) => `${d.id} ${d.title}`).join('；'), `${v.id} 有 ${toVerify.length} 个缺陷等我验收：${toVerify.map((d) => d.id).join('、')}。逐个告诉我怎么验，我验完告诉你结果。`)
+    const drafts = v.current?.stage === 'requirements' ? v.items.filter((x) => x.status === 'draft' && x.priority === 'P0') : []
+    if (drafts.length) add([v.owners.product], '等你确认', v.id, `${v.id} 有 ${drafts.length} 条核心需求还是草稿`, drafts.map((x) => x.name).join('；'), `${v.id} 还有 ${drafts.length} 条核心需求没确认。逐条给我看内容和你拿不准的地方，我一条一条确认。`)
     if (v.status === 'planned') add([v.owners.product], '还没开始', v.id, `${v.id} 已立项，还没进入任何阶段`, v.goal, `${v.id} 开始做吧，从第一个阶段开始。`)
   }
   for (const x of S.config.filter((x) => x.status === 'draft')) add([x.owner ?? x.by], '等你确认', null, `配置项「${x.name}」的草稿待审`, `${x.note ?? ''}${x.due ? `（期限 ${x.due}）` : ''}`, `「${x.name}」的草稿我来审。把摘要和你拿不准的地方列给我。`)

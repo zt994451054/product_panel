@@ -28,10 +28,10 @@
 
 | 来源 | 特性点 / 改动点 | 覆盖用例 |
 |------|---------------|---------|
-| requirements.md #昵称 验收标准 1 | 昵称合法 → 保存成功 | TC-001 |
-| design-spec.md 修改昵称流程 异常分支 | 昵称已被占用 | TC-002 |
-| 原型 /web/profile（高保真）| 资料页还原 | TC-003 |
-| tech-solution.md 用户接口新增 nickname 字段 | 回归：已有的用户详情查询 | TC-004 |
+| requirements.md #昵称 验收标准 1 | 昵称合法 → 保存成功 | TC-xiaozhou-001 |
+| design-spec.md 修改昵称流程 异常分支 | 昵称已被占用 | TC-xiaozhou-002 |
+| 原型 /web/profile（高保真）| 资料页还原 | TC-xiaozhou-003 |
+| tech-solution.md 用户接口新增 nickname 字段 | 回归：已有的用户详情查询 | TC-xiaozhou-004 |
 
 - **一行一项**：一条验收标准、一个异常分支、一个页面、一处改动各占一行，不要合并成「注册相关」这样的大行。
 - **多对多**：一条用例可以覆盖多行，一行也可以由多条用例覆盖。
