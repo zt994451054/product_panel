@@ -971,7 +971,16 @@ Every version goes through the same stages, but anything that does not apply can
 In its own repositories. Register them in `engineering/README.md` and the AI clones them into `engineering/workspace/`, which git ignores. The only code in the panel is the unified prototype.
 
 **Which AI tools are supported?**
-Any tool that reads `AGENTS.md`. The process has been exercised end to end only on Claude Code. For other tools, only the entry files pointing to `AGENTS.md` have been checked.
+Any tool that reads `AGENTS.md`. Whether the rules actually hold depends on the model, not the tool.
+
+The template's own process drills (taking a version end to end, handling changes, open questions and decision records, release and hotfix) were each run with four models in 2026-11:
+
+| Model tier | What we saw |
+|---|---|
+| Flagship (Claude Fable 5.2, Claude Opus 5.5, Gemini 4 Hydrogen High) | Hold the gate and sign-off rules, record what they cannot verify as not passed, and write "to be filled in" where nobody supplied a source. Occasionally treat one sentence as confirmation of two things; the commands catch part of this |
+| Lightweight (Gemini 3.8 Flash High) | Makes up content nobody provided (environment addresses, accounts, defect root causes, review conclusions) and records hearsay as something it verified itself. The commands can check what was filled in, not whether it is true |
+
+We recommend driving the panel with a flagship model. With a lightweight model, check the gate evidence and the quoted words yourself before signing off instead of relying on "gate passed". For other tools, only the entry files pointing to `AGENTS.md` have been checked.
 
 **Can several people each use their own AI?**
 Yes, with a caveat: each person can drive their own version on their own branch. State is a set of append-only records, and reading it merges the records from every branch, so nobody overwrites anybody else. Commit and push records promptly so others can see them. Branch and commit discipline is in `agents/collaboration.md`.
