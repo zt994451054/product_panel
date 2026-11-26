@@ -13,6 +13,8 @@ import { CONFIG_STATUS, DEFECT_FOUND, DEFECT_NEXT, DEFECT_STATUS, FIXED_HUMAN, F
 class Fail extends Error {}
 const fail = (msg) => { throw new Fail(msg) }
 const list = (s) => (s == null ? [] : String(s).split(',').map((x) => x.trim()).filter(Boolean))
+// What a member knows well. Only shapes how the agent explains things; it grants or blocks nothing.
+const FAMILIAR = { product: '产品', frontend: '前端', backend: '后端', testing: '测试', ops: '运维', owner: '总负责人' }
 const oneOf = (v, allowed, label) => (allowed.includes(v) ? v : fail(`${label}「${v ?? ''}」不合法。可选：${allowed.join('、')}`))
 const need = (f, key, label) => (f[key] != null && f[key] !== '' ? f[key] : fail(`缺少 --${key}（${label}）`))
 
@@ -69,7 +71,7 @@ const itemOf = (v, f) => v.items.find((x) => x.id === need(f, 'item', '需求条
 const defectOf = (v, f) => v.defects.find((x) => x.id === need(f, 'defect', '缺陷编号')) ?? fail(`${v.id} 没有缺陷 ${f.defect}。已有：${v.defects.map((x) => x.id).join('、') || '（还没有）'}`)
 const openDefects = (v) => v.defects.filter((d) => !['closed', 'waived'].includes(d.status))
 /** Gate conditions the tool can verify by itself from the ledger, so nobody has to count rows. */
-function autoChecks(v, stage) {
+function autoChecks(v, stage, online) {
   const out = []
   if (stage === 'requirements') {
     const live = v.items.filter((x) => x.status !== 'dropped'), p0 = live.filter((x) => x.priority === 'P0'), draft = p0.filter((x) => x.status === 'draft')
@@ -78,6 +80,11 @@ function autoChecks(v, stage) {
   if (['test', 'release'].includes(stage)) {
     const open = openDefects(v), waived = v.defects.filter((d) => d.status === 'waived')
     out.push({ text: '登记的缺陷全部已关闭或已豁免', ok: !open.length, evidence: open.length ? `未关闭：${open.map((d) => `${d.id}（${d.severity}，${DEFECT_STATUS[d.status]}）`).join('、')}` : `共 ${v.defects.length} 条，已关闭 ${v.defects.length - waived.length} 条，豁免 ${waived.length} 条` })
+  }
+  if (stage === 'release') {
+    // The tool already knows whether anyone looked at what is running in production; nobody gets to vouch for it by word.
+    const r = online.running, mine = r && r.how !== 'rollback' && r.version === v.id
+    out.push({ text: '线上版本标识已核对', ok: !!(mine && r.checked), evidence: !mine ? `线上在跑的不是 ${v.id} 的部署` : r.checked ? `核对记录：${r.checked}` : '还没核对：拿到线上实际的版本标识后运行 deploy --env production --action verify --checked …' })
   }
   return out.map((x, i) => ({ id: `${stage}.auto${i + 1}`, ...x, source: 'script' }))
 }
@@ -136,12 +143,12 @@ const commands = {
   'member add'(c, f) {
     if (!c.state.initialized) fail('项目还没有初始化，先运行 init')
     const domains = list(f.domains); domains.forEach((d) => oneOf(d, ['product', 'engineering', 'testing', 'ops'], '负责域'))
-    return commit(c, 'project', { type: 'member_add', member: { id: /^[a-z0-9_-]+$/.test(need(f, 'id', '成员标识')) ? f.id : fail('成员标识只能用小写字母、数字、下划线、短横线'), name: need(f, 'name', '显示名'), role: need(f, 'role', '角色'), domains } }, f, { freeBy: c.state.members.length === 0 })
+    return commit(c, 'project', { type: 'member_add', member: { id: /^[a-z0-9_-]+$/.test(need(f, 'id', '成员标识')) ? f.id : fail('成员标识只能用小写字母、数字、下划线、短横线'), name: need(f, 'name', '显示名'), role: need(f, 'role', '角色'), domains, ...(f.familiar ? { familiar: familiarOf(f) } : {}) } }, f, { freeBy: c.state.members.length === 0 })
   },
   'member update'(c, f) {
-    const set = {}; if (f.name) set.name = f.name; if (f.role) set.role = f.role; if (f.domains) set.domains = list(f.domains)
-    if (!Object.keys(set).length) fail('没有要改的内容：--name、--role、--domains 至少给一个')
-    return commit(c, 'project', { type: 'member_update', member: member(c, need(f, 'id', '成员标识'), '成员'), set }, f, { byMember: true })
+    const set = {}; if (f.name) set.name = f.name; if (f.role) set.role = f.role; if (f.domains) set.domains = list(f.domains); if (f.familiar) set.familiar = familiarOf(f)
+    if (!Object.keys(set).length) fail('没有要改的内容：--name、--role、--domains、--familiar 至少给一个')
+    return commit(c, 'project', { type: 'member_update', member: member(c, need(f, 'id', '成员标识'), '成员'), set, ...pick(f, ['quote']) }, f, { byMember: true })
   },
   'member deactivate'(c, f) { return commit(c, 'project', { type: 'member_deactivate', member: member(c, need(f, 'id', '成员标识'), '成员'), reason: need(f, 'reason', '原因') }, f, { byMember: true }) },
   'settings set'(c, f) {
@@ -230,7 +237,7 @@ const commands = {
     if (!checks.length) fail(`至少要有一条 --check "${CHECK_FORMAT}"`)
     const told = checks.filter((x) => x.told), same = told.find((x, i) => told.findIndex((y) => y.told.quote === x.told.quote) !== i)
     if (same) fail(`「${same.told.quote}」被用作不止一条门控条件的依据。一句话不能替多条条件作证：逐条问使用者，各记各的原话；没有逐条说过的记 no`)
-    checks.unshift(...autoChecks(v, stage))
+    checks.unshift(...autoChecks(v, stage, c.state.online))
     const result = checks.every((x) => x.ok) ? 'pass' : 'fail'
     const onWord = told.length ? `\n其中 ${told.length} 条是按口述记的，没有核实：${told.map((x) => x.text).join('；')}。请求签收时要在摘要里单独列出。` : ''
     return commit(c, v.id, { type: 'gate_check', stage, result, checks }, f) + onWord + (result === 'fail' ? `\n门控未通过：${checks.filter((x) => !x.ok).map((x) => `${x.text}（${x.evidence}）`).join('；')}` : '\n门控通过。')
@@ -394,6 +401,30 @@ function branchOnly(c, branch) {
   return only.length ? `有 ${only.length} 条事件只存在于分支 ${branch} 上，删除这个分支会丢失它们：\n` + only.map((p) => '- ' + p).join('\n') : `分支 ${branch} 上的事件在其他分支都有，可以安全删除。`
 }
 
+const familiarOf = (f) => list(f.familiar).map((d) => oneOf(d, Object.keys(FAMILIAR), '熟悉的领域'))
+// Recorded decisions show which fields a member actually works in: sign-offs, confirmed requirements, defects fixed,
+// accepted or waived, production approvals. Being the product's overall owner leaves no such trace, so it is never inferred.
+const STAGE_FIELDS = { requirements: ['product'], design: ['product'], tech: ['frontend', 'backend'], dev: ['frontend', 'backend'], test_design: ['testing'], test: ['testing'], release: [] }
+function familiarText(s, id) {
+  const m = s.members.find((x) => x.id === id)
+  if (!m.familiar?.length) return '熟悉的领域：没记（按都熟悉对待；合适的时候问一次，用 member update --familiar 记下）'
+  // Only what happened after the list was last set counts, so answering "no" (re-recording the same list) stops the hint.
+  const since = Date.parse(m.familiarAt), acts = new Map()
+  const add = (fields, at) => { if (Date.parse(at) > since && fields.length && !fields.some((d) => m.familiar.includes(d))) { const k = fields.map((d) => FAMILIAR[d]).join('或'); acts.set(k, (acts.get(k) ?? 0) + 1) } }
+  for (const g of s.signoffs) if (g.by === id) add(STAGE_FIELDS[g.stage] ?? [], g.at)
+  for (const d of s.deploys) if (d.env === 'production' && d.approved?.by === id) add(['ops'], d.at)
+  for (const v of s.versions) {
+    for (const it of v.items) if (it.confirmed?.by === id) add(['product'], it.confirmed.at)
+    for (const d of v.defects) {
+      if (d.assignee === id && d.assignedAt) add(['frontend', 'backend'], d.assignedAt)
+      if (d.verifier === id && d.closedAt) add(['testing'], d.closedAt)
+      if (d.waiver?.by === id) add(['testing'], d.waiver.at)
+    }
+  }
+  const text = `熟悉的领域：${m.familiar.map((d) => FAMILIAR[d]).join('、')}`
+  return acts.size ? `${text}\n  提示：${m.name} 记下熟悉的领域之后，又在 ${[...acts].map(([k, n]) => `${k}（${n} 次）`).join('、')} 做过决定（签收阶段、确认需求、修复或验收缺陷、批准生产部署）。问他一次要不要把这些也记成熟悉的领域，按他的回答运行 member update --familiar（不加也照原样记一次，之后不再提）` : text
+}
+
 /* ---------- status summary: the standard read entry for agents ---------- */
 function statusText(c, only) {
   const s = c.state, tz = s.tz, md = (iso) => dayIn(tz, iso).slice(5), hm = (iso) => isoIn(tz, new Date(iso)).slice(11, 16)
@@ -401,7 +432,7 @@ function statusText(c, only) {
   const lines = []
   if (c.all.problems.length) lines.push(`⚠ 有 ${c.all.problems.length} 个事件文件损坏，没有生效：`, ...c.all.problems.map((p) => `  - ${p.where}：${p.why}`))
   if (!s.initialized) { lines.push('【项目未初始化】还没有初始化记录。只能做初始化相关的工作。', '下一步：node tools/panel.mjs init --name <产品名> --type new|legacy --by <你的标识>'); return lines.join('\n') }
-  lines.push(c.me ? `当前操作者：${nm(c.me)}（${c.me}）` : '当前操作者：未识别。需要人做决定时先问「你是哪位成员」，再运行 whoami --set <成员标识>')
+  lines.push(c.me ? `当前操作者：${nm(c.me)}（${c.me}）· ${familiarText(s, c.me)}` : '当前操作者：未识别。需要人做决定时先问「你是哪位成员」，再运行 whoami --set <成员标识>')
   lines.push(`【项目】${s.project.name}（${s.project.type === 'new' ? '新产品' : '存量产品'}）· ${s.project.positioning}`)
   const r = s.online.running
   lines.push(`线上在跑：${r ? `${r.version ?? '没有版本'}${r.build ? ' ' + r.build : ''}（${md(r.since)} ${r.how === 'rollback' ? '从 ' + r.from.join('、') + ' 回滚' : r.how === 'baseline' ? '登记，接入面板前已在线上' : r.how === 'exception' ? '例外上线，没走完门控，待补齐' : '部署'}${r.how !== 'baseline' && !r.checked ? '，⚠ 线上版本标识还没核对' : ''}）` : '还没有生产部署记录'} · 最后发布：${s.online.lastReleased ? `${s.online.lastReleased.version}（${md(s.online.lastReleased.at)}）` : '无'}`)
@@ -450,8 +481,9 @@ const HELP = `用法：node tools/panel.mjs <命令> [--参数 值 ...]
 
 项目
   init --name --type new|legacy [--positioning --timezone] --by
-  member add --id --name --role --domains product,engineering,testing,ops --by
-  member update --id [--name --role --domains] --by
+  member add --id --name --role --domains product,engineering,testing,ops [--familiar product,frontend,backend,testing,ops,owner] --by
+  member update --id [--name --role --domains --familiar --quote] --by
+      （--familiar 是这位成员熟悉的领域，只影响怎么向他说明，不影响谁能签收；不写就按都熟悉对待）
   member deactivate --id --reason --by
   settings set --key gate.<阶段>|stall_days.standard|stall_days.hotfix --value --quote --by
   config set --item --status todo|skipped|draft|confirmed|na [--quote --note --owner --due] --by

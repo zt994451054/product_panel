@@ -22,7 +22,7 @@ const commit = (msg) => { sh('add', '-A'); sh('-c', 'user.name=validator', '-c',
 sh('init', '-q', '-b', 'main')
 sh('config', 'user.name', 'validator'); sh('config', 'user.email', 'validator@example.com')
 
-if (['S3', 'S4', 'S5', 'S7', 'S8', 'S9', 'S10'].includes(scenario)) {
+if (['S3', 'S4', 'S5', 'S7', 'S8', 'S9', 'S10', 'S11'].includes(scenario)) {
   execFileSync('node', [join(fixtures, 'seed-v1', 'apply.mjs'), panel], { stdio: 'inherit' })
 }
 // Later starting points are replayed through the panel tool, the same way a real project would record them.

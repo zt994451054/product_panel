@@ -162,14 +162,18 @@ test('release needs the product owner and a downstream check for every other ope
   const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00'); newVersion(r, 'v1.1.0', '2026-10-01T09:30')
   ;['requirements', 'design', 'tech', 'test_design', 'dev', 'test'].forEach((s, i) => pass(r, 'v1.0.0', s, 2 + i))
   r.ok('stage', 'enter', '--version', 'v1.0.0', '--stage', 'release', '--by', 'ai', '--at', '2026-10-08T09:00')
-  r.ok('stage', 'check', '--version', 'v1.0.0', '--stage', 'release', '--check', 'a|ok|b', '--by', 'ai', '--at', '2026-10-09T09:00')
+  const check = (at) => r.ok('stage', 'check', '--version', 'v1.0.0', '--stage', 'release', '--check', 'a|ok|b', '--by', 'ai', '--at', at)
+  // The release gate looks at the deployment record itself: nothing deployed, or deployed but never looked at, does not pass.
+  assert.match(check('2026-10-08T10:00'), /线上版本标识已核对（线上在跑的不是 v1\.0\.0 的部署）/)
+  r.ok('deploy', '--env', 'production', '--action', 'deploy', '--versions', 'v1.0.0', '--build', 'b1', '--approved-by', 'xiaolin', '--quote', '上', '--by', 'azhe', '--at', '2026-10-08T21:00')
+  assert.match(check('2026-10-08T22:00'), /线上版本标识已核对（还没核对/)
+  r.ok('deploy', '--env', 'production', '--action', 'verify', '--versions', 'v1.0.0', '--checked', '页脚显示 b1', '--by', 'azhe', '--at', '2026-10-08T23:00')
+  assert.match(check('2026-10-09T09:00'), /门控通过/)
   r.ok('stage', 'request', '--version', 'v1.0.0', '--stage', 'release', '--to', 'xiaolin', '--summary', '摘要', '--by', 'ai', '--at', '2026-10-09T09:10')
   const done = ['stage', 'complete', '--version', 'v1.0.0', '--stage', 'release', '--quote', '确认', '--by', 'ai', '--at', '2026-10-09T10:00']
   r.no(/只能由产品负责人/, ...done, '--signer', 'azhe')
-  r.no(/部署到生产的记录/, ...done, '--signer', 'xiaolin')
   r.no(/环境 --env/, 'deploy', '--env', 'prod', '--action', 'deploy', '--versions', 'v1.0.0', '--by', 'azhe')
   r.no(/v9\.9\.9 不存在/, 'deploy', '--env', 'production', '--action', 'deploy', '--versions', 'v9.9.9', '--approved-by', 'xiaolin', '--quote', '上', '--by', 'azhe')
-  r.ok('deploy', '--env', 'production', '--action', 'deploy', '--versions', 'v1.0.0', '--build', 'b1', '--approved-by', 'xiaolin', '--quote', '上', '--by', 'azhe', '--at', '2026-10-08T21:00')
   r.no(/v1\.1\.0/, ...done, '--signer', 'xiaolin')
   r.ok('downstream-check', '--version', 'v1.0.0', '--target', 'v1.1.0', '--result', 'deferred', '--evidence', '下周合入表结构变更', '--confirmed-by', 'azhe', '--quote', '不用合', '--by', 'ai', '--at', '2026-10-09T09:30')
   r.ok(...done, '--signer', 'xiaolin')
@@ -395,7 +399,7 @@ test('the side that lost a number clash is stopped, and voiding its creation cle
 test('a released version cannot be put on hold, abandoned or replanned', () => {
   const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00')
   for (const [i, s] of ['requirements', 'design', 'tech', 'test_design', 'dev', 'test'].entries()) pass(r, 'v1.0.0', s, i + 2)
-  r.ok('deploy', '--env', 'production', '--action', 'deploy', '--versions', 'v1.0.0', '--approved-by', 'xiaolin', '--quote', '上', '--by', 'ai', '--at', '2026-10-09T08:00')
+  r.ok('deploy', '--env', 'production', '--action', 'deploy', '--versions', 'v1.0.0', '--checked', '页脚显示构建号', '--approved-by', 'xiaolin', '--quote', '上', '--by', 'ai', '--at', '2026-10-09T08:00')
   pass(r, 'v1.0.0', 'release', 9)
   r.no(/已经发布/, 'version', 'hold', '--version', 'v1.0.0', '--reason', 'x', '--resume-when', 'x', '--quote', 'x', '--by', 'xiaolin')
   r.no(/已经发布/, 'version', 'abandon', '--version', 'v1.0.0', '--reason', 'x', '--quote', 'x', '--by', 'xiaolin')
@@ -529,4 +533,29 @@ test('changing a requirement item that nobody has confirmed leaves it a draft', 
   r.ok('item', 'confirm', ...V, '--item', id, '--quote', '确认', '--by', 'xiaolin')
   r.ok('item', 'change', ...V, '--item', id, '--ref', 'CHANGE-xiaolin-002', '--by', 'ai')
   assert.equal(r.state().versions[0].items[0].status, 'changed')
+})
+
+test('familiar fields are recorded per member and only produce a hint, never a refusal', () => {
+  const r = ready()
+  r.ok('whoami', '--set', 'xiaolin')
+  assert.match(r.ok('status'), /当前操作者：小林（xiaolin）· 熟悉的领域：没记/)
+  r.no(/熟悉的领域「design」不合法/, 'member', 'update', '--id', 'xiaolin', '--familiar', 'design', '--by', 'xiaolin')
+  r.ok('member', 'update', '--id', 'xiaolin', '--familiar', 'product,owner', '--quote', '我做产品，也是这个产品的总负责人', '--by', 'xiaolin', '--at', '2026-08-20T11:00')
+  assert.match(r.ok('status'), /熟悉的领域：产品、总负责人\n(?!  提示)/)
+  newVersion(r, 'v1.0.0', '2026-10-01T09:00')
+  // Signing inside a familiar field stays quiet; signing outside it is allowed and surfaces a hint.
+  pass(r, 'v1.0.0', 'requirements', 2); pass(r, 'v1.0.0', 'design', 3)
+  assert.doesNotMatch(r.ok('status'), /提示：小林/)
+  pass(r, 'v1.0.0', 'tech', 4); pass(r, 'v1.0.0', 'test_design', 5)
+  assert.match(r.ok('status'), /提示：小林 记下熟悉的领域之后，又在 前端或后端（1 次）、测试（1 次） 做过决定/)
+  // Recording the answer, even an unchanged list, clears the hint.
+  r.ok('member', 'update', '--id', 'xiaolin', '--familiar', 'product,owner,testing', '--quote', '测试也算上，研发先不加', '--by', 'xiaolin', '--at', '2026-10-06T09:00')
+  const out = r.ok('status')
+  assert.match(out, /熟悉的领域：产品、总负责人、测试/); assert.doesNotMatch(out, /提示：小林/)
+  assert.deepEqual(r.state().members.find((m) => m.id === 'xiaolin').familiar, ['product', 'owner', 'testing'])
+  // Other recorded decisions count too: here a product person closes a defect as its verifier.
+  r.ok('member', 'update', '--id', 'xiaolin', '--familiar', 'product', '--quote', '还是只记产品吧', '--by', 'xiaolin', '--at', '2026-10-06T10:00')
+  const bug = r.ok('defect', 'open', '--version', 'v1.0.0', '--title', '时段重复', '--severity', 'P1', '--found-in', 'test', '--by', 'ai', '--at', '2026-10-06T11:00').match(/编号：(\S+?)（/)[1]
+  r.ok('defect', 'status', '--version', 'v1.0.0', '--defect', bug, '--to', 'fixing', '--assignee', 'xiaolin', '--by', 'ai', '--at', '2026-10-06T12:00')
+  assert.match(r.ok('status'), /又在 前端或后端（1 次） 做过决定/)
 })

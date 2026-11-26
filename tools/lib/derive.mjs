@@ -56,8 +56,8 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
       switch (e.type) {
         case 'project_init': if (project.info) bad('项目已经初始化过，这条重复的初始化没有生效'); else project.info = { ...e }; break
         case 'project_update': if (project.info) Object.assign(project.info, e.set); else bad('项目还没有初始化'); break
-        case 'member_add': if (project.members.has(e.member.id)) bad(`成员标识 ${e.member.id} 已存在，这条没有生效`); else project.members.set(e.member.id, { ...e.member, active: true, joined: day(e.at) }); break
-        case 'member_update': { const m = project.members.get(e.member); if (m) Object.assign(m, e.set); else bad(`成员 ${e.member} 不存在`); break }
+        case 'member_add': if (project.members.has(e.member.id)) bad(`成员标识 ${e.member.id} 已存在，这条没有生效`); else project.members.set(e.member.id, { ...e.member, active: true, joined: day(e.at), familiarAt: e.member.familiar ? e.at : null }); break
+        case 'member_update': { const m = project.members.get(e.member); if (m) Object.assign(m, e.set, e.set.familiar ? { familiarAt: e.at } : {}); else bad(`成员 ${e.member} 不存在`); break }
         case 'member_deactivate': { const m = project.members.get(e.member); if (m) m.active = false; else bad(`成员 ${e.member} 不存在`); break }
         case 'setting_set': {
           const stage = e.key.startsWith('gate.') ? e.key.slice(5) : null
@@ -160,7 +160,7 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
         if (!DEFECT_NEXT[d.status].includes(e.status)) { bad(`缺陷 ${e.defect} 现在是「${DEFECT_STATUS[d.status]}」，不能直接改为「${DEFECT_STATUS[e.status] ?? e.status}」`); continue }
         if (e.status === 'open') { d.reopened += 1; d.closedAt = null; d.waiver = null }
         if (e.status === 'closed') { d.closedAt = e.at; d.verifier = e.verifier ?? d.verifier; d.closeQuote = e.quote ?? null }
-        d.status = e.status; d.assignee = e.assignee ?? d.assignee; d.build = e.build ?? d.build
+        d.status = e.status; if (e.assignee) d.assignedAt = e.at; d.assignee = e.assignee ?? d.assignee; d.build = e.build ?? d.build
         break
       }
       case 'defect_waive': {
