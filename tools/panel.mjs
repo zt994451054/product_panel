@@ -96,9 +96,14 @@ function autoChecks(v, stage, online) {
     const live = v.items.filter((x) => x.status !== 'dropped'), bare = live.filter((x) => !v.cases.some((t) => t.items.includes(x.id)))
     out.push({ text: '用例已登记，每条需求条目都有对应的用例', ok: v.cases.length > 0 && !bare.length, evidence: !v.cases.length ? '还没有登记用例（case add）' : bare.length ? `还没有用例的条目：${bare.map((x) => `${x.id} ${x.name}`).join('、')}（case add --items）` : `${live.length} 条需求条目，${liveCases(v).length} 条用例` })
   }
+  if (stage === 'dev') {
+    // Self-test is a recorded run, not a claim: every P0 case has to have passed once on the developer's build.
+    const p0 = liveCases(v).filter((x) => x.priority === 'P0'), left = p0.filter((x) => !['pass', 'waived'].includes(x.status))
+    out.push({ text: 'P0 用例都有自测通过的记录', ok: !left.length, evidence: left.length ? `还没有自测通过记录：${left.map((x) => `${x.id}（${CASE_STATUS[x.status]}）`).join('、')}（case result）` : `P0 用例 ${p0.length} 条，自测均已通过` })
+  }
   if (stage === 'test') {
-    const cs = liveCases(v), left = cs.filter((x) => !['pass', 'waived'].includes(x.status))
-    out.push({ text: '用例全部通过或已由人豁免', ok: cs.length > 0 && !left.length, evidence: !cs.length ? '还没有登记用例（case add）' : left.length ? `还没通过：${left.map((x) => `${x.id}（${CASE_STATUS[x.status]}）`).join('、')}` : `共 ${cs.length} 条：${caseCount(cs)}` })
+    const cs = liveCases(v), left = cs.filter((x) => !['pass', 'waived'].includes(x.status)), word = cs.filter((x) => x.status === 'pass' && x.runs.at(-1)?.quote)
+    out.push({ text: '用例全部通过或已由人豁免', ok: cs.length > 0 && !left.length, evidence: !cs.length ? '还没有登记用例（case add）' : left.length ? `还没通过：${left.map((x) => `${x.id}（${CASE_STATUS[x.status]}）`).join('、')}` : `共 ${cs.length} 条：${caseCount(cs)}${word.length ? `。其中 ${word.length} 条的通过是按人说的记的，没有执行记录：${word.map((x) => x.id).join('、')}，请求签收时要在摘要里单独列出` : ''}` })
   }
   if (['test', 'release'].includes(stage)) {
     const open = openDefects(v), waived = v.defects.filter((d) => d.status === 'waived')

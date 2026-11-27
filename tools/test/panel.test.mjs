@@ -57,7 +57,7 @@ function pass(r, v, stage, d, signer = 'xiaolin') {
     for (const it of ver.items.filter((x) => x.status !== 'dropped' && !ver.cases.some((t) => t.items.includes(x.id)))) r.ok('case', 'add', '--version', v, '--title', '正常预约', '--priority', 'P0', '--type', 'api', '--items', it.id, '--by', 'ai', '--at', at('10'))
     if (!ver.items.length && !ver.cases.length) r.ok('case', 'add', '--version', v, '--title', '修复点回归', '--priority', 'P0', '--type', 'api', '--note', '热修复的回归', '--by', 'ai', '--at', at('10'))
   }
-  const todo = stage === 'test' ? ver.cases.filter((t) => !['pass', 'waived'].includes(t.status)).map((t) => t.id) : []
+  const todo = ['dev', 'test'].includes(stage) ? ver.cases.filter((t) => !['pass', 'waived'].includes(t.status)).map((t) => t.id) : []
   if (todo.length) r.ok('case', 'result', '--version', v, '--case', todo.join(','), '--result', 'pass', '--actual', '接口返回 200', '--by', 'ai', '--at', at('10'))
   r.ok('stage', 'check', '--version', v, '--stage', stage, '--check', '条件|ok|依据|manual', '--by', 'ai', '--at', at('15'))
   r.ok('stage', 'request', '--version', v, '--stage', stage, '--to', signer, '--summary', '摘要', '--by', 'ai', '--at', at('16'))
@@ -660,10 +660,15 @@ test('cases: every item needs one before development, every case has to pass or 
   assert.match(r.ok('stage', 'check', ...V, '--stage', 'test_design', '--check', 'a|ok|b', '--by', 'ai', '--at', at('05', '15')), /门控通过/)
   r.ok('stage', 'request', ...V, '--stage', 'test_design', '--to', 'zhouzhou', '--summary', '摘要', '--by', 'ai', '--at', at('05', '16'))
   r.ok('stage', 'complete', ...V, '--stage', 'test_design', '--signer', 'zhouzhou', '--quote', '可以', '--by', 'ai', '--at', at('05', '17'))
-  pass(r, 'v1.0.0', 'dev', 6)
   const R = ['case', 'result', ...V], T = (n) => `TC-zhouzhou-00${n}`, cs = () => r.state().versions[0].cases
+  // Development cannot be signed off on a claim: every P0 case needs a recorded self-test pass.
+  r.ok('stage', 'enter', ...V, '--stage', 'dev', '--by', 'ai', '--at', at('06', '09'))
+  assert.match(r.ok('stage', 'check', ...V, '--stage', 'dev', '--check', 'a|ok|b', '--by', 'ai', '--at', at('06', '10')), /还没有自测通过记录：TC-zhouzhou-001（未执行）、TC-zhouzhou-002（未执行）、TC-zhouzhou-003（未执行）/)
+  r.ok(...R, '--case', `${T(1)},${T(2)},${T(3)}`, '--result', 'pass', '--actual', '本地自测通过', '--by', 'ai', '--at', at('06', '11'))
+  assert.match(r.ok('stage', 'check', ...V, '--stage', 'dev', '--check', 'a|ok|b', '--by', 'ai', '--at', at('06', '15')), /门控通过/)
+  r.ok('stage', 'request', ...V, '--stage', 'dev', '--to', 'azhe', '--summary', '摘要', '--by', 'ai', '--at', at('06', '16'))
+  r.ok('stage', 'complete', ...V, '--stage', 'dev', '--signer', 'azhe', '--quote', '可以', '--by', 'ai', '--at', at('06', '17'))
   // A developer's self-test pass does not survive into the test stage: it was not on the build under test.
-  r.ok(...R, '--case', T(1), '--result', 'pass', '--actual', '本地自测通过', '--by', 'ai', '--at', at('06', '18'))
   r.ok('stage', 'enter', ...V, '--stage', 'test', '--by', 'ai', '--at', at('07', '09'))
   assert.equal(cs()[0].status, 'regress'); assert.match(cs()[0].why, /进入测试阶段前/)
   r.no(/缺少 --actual/, ...R, '--case', T(1), '--result', 'pass', '--by', 'ai')
@@ -688,6 +693,8 @@ test('cases: every item needs one before development, every case has to pass or 
   r.no(/逐条/, 'case', 'waive', ...V, '--case', `${T(2)},${T(3)}`, '--scope', '弱网', '--quote', '先不测', '--by', 'zhouzhou')
   r.ok('case', 'waive', ...V, '--case', T(3), '--scope', '没有弱网环境，本版只在办公网使用', '--until', 'v1.1.0', '--quote', '弱网这条这版先不测，下版补', '--by', 'zhouzhou', '--at', at('07', '17'))
   assert.match(r.ok('stage', 'check', ...V, '--stage', 'test', '--check', 'a|ok|b', '--by', 'ai', '--at', at('07', '18')), /门控通过/)
+  // The gate says which passes rest on someone's word rather than on a run the agent saw.
+  assert.match(r.state().versions[0].current.check.checks[0].evidence, /其中 1 条的通过是按人说的记的，没有执行记录：TC-zhouzhou-001/)
   assert.equal(cs()[0].runs.length, 3); assert.equal(cs()[2].waiver.until, 'v1.1.0')
   const out = r.ok('case', 'list', ...V)
   assert.match(out, /共 3 条：通过 2、已豁免 1/); assert.match(out, /TC-zhouzhou-003 \| P0 \| 接口 \| 已豁免（没有弱网环境，本版只在办公网使用）/)

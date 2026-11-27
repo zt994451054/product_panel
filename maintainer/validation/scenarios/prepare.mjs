@@ -61,7 +61,9 @@ if (scenario === 'S9') {
   cpSync(join(fixtures, 'release-v1', 'files'), panel, { recursive: true })
   addCases('2026-10-26')
   signoff('test_design', '2026-10-26', 'xiaozhou', '用例确认')
-  enter('dev', '2026-10-27'); signoff('dev', '2026-10-28', 'xiaowang', '开发完成')
+  enter('dev', '2026-10-27')
+  panelCmd('case', 'result', ...V, '--case', [1, 2, 3, 4, 5, 6, 7, 8].map((n) => `TC-xiaozhou-00${n}`).join(','), '--result', 'pass', '--actual', '开发自测：本地环境按用例步骤执行，结果与预期一致', '--by', 'ai', '--at', '2026-10-28T10:00')
+  signoff('dev', '2026-10-28', 'xiaowang', '开发完成')
   enter('test', '2026-10-29')
   // First round: everything passes except the booking-limit case, which finds the one defect of this version.
   const T = (n) => `TC-xiaozhou-00${n}`, R = ['case', 'result', ...V, '--by', 'ai']
