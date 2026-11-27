@@ -8,7 +8,7 @@ import { isAbsolute, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { git, isoIn, profilePaths, readAll, readDefs, readProfile, writeEvent } from './lib/store.mjs'
 import { renderCockpit } from './lib/cockpit.mjs'
-import { CHANGE_IMPACT, CHANGE_TARGETS, CHANGE_TYPE, CONFIG_STATUS, DEFECT_FOUND, DEFECT_NEXT, DEFECT_STATUS, FIXED_HUMAN, FLOWS, ITEM_STATUS, MODES, STAGES, STAGE_NAME, dayIn, derive } from './lib/derive.mjs'
+import { CASE_STATUS, CASE_TYPE, CHANGE_IMPACT, CHANGE_TARGETS, CHANGE_TYPE, CONFIG_STATUS, DEFECT_FOUND, DEFECT_NEXT, DEFECT_STATUS, FIXED_HUMAN, FLOWS, ITEM_STATUS, MODES, STAGES, STAGE_NAME, dayIn, derive } from './lib/derive.mjs'
 
 class Fail extends Error {}
 const fail = (msg) => { throw new Fail(msg) }
@@ -56,7 +56,7 @@ function versionOf(c, f) {
  * compete for a number. Without a known operator the number is a short random code instead.
  */
 function nextId(c, prefix) {
-  const taken = new Set(c.all.events.map((e) => e.item ?? e.defect ?? e.dec ?? e.chg).filter(Boolean))
+  const taken = new Set(c.all.events.map((e) => e.item ?? e.defect ?? e.dec ?? e.chg ?? e.tc).filter(Boolean))
   if (c.me) {
     const mine = [...taken].filter((id) => id.startsWith(`${prefix}-${c.me}-`)).map((id) => Number(id.slice(prefix.length + c.me.length + 2))).filter(Number.isInteger)
     return `${prefix}-${c.me}-${String(Math.max(0, ...mine) + 1).padStart(3, '0')}`
@@ -80,6 +80,10 @@ const NOT_A_DECISION = ['你决定', '你定', '你来定', '你自己定', '你
 // A bare yes only means something next to the suggestion it answers.
 const ASSENT = ['可以', '可', '好', '好的', '行', '同意', '没问题', '确认', '嗯', '对', '是', '是的', 'ok', '通过', '就这样', '就这么办']
 const bare = (q) => { let t = String(q).replace(/[\s，。！？!?,.、~～「」“”"']/g, ''); while (/[吧了啊呀哦呢嘛]$/.test(t)) t = t.slice(0, -1); return t }
+const casesOf = (v, raw) => { const ids = list(raw); if (!ids.length) fail('缺少 --case（用例编号，多条用逗号分隔）'); const miss = ids.filter((id) => !v.cases.some((x) => x.id === id)); if (miss.length) fail(`${v.id} 没有用例 ${miss.join('、')}。先用 case add 登记。已有：${v.cases.map((x) => x.id).join('、') || '（还没有）'}`); return ids }
+// A case only counts while something it tests is still in the version.
+const liveCases = (v) => v.cases.filter((x) => !x.items.length || x.items.some((id) => v.items.find((it) => it.id === id)?.status !== 'dropped'))
+const caseCount = (cs) => Object.keys(CASE_STATUS).filter((s) => cs.some((x) => x.status === s)).map((s) => `${CASE_STATUS[s]} ${cs.filter((x) => x.status === s).length}`).join('、')
 const openDefects = (v) => v.defects.filter((d) => !['closed', 'waived'].includes(d.status))
 /** Gate conditions the tool can verify by itself from the ledger, so nobody has to count rows. */
 function autoChecks(v, stage, online) {
@@ -87,6 +91,14 @@ function autoChecks(v, stage, online) {
   if (stage === 'requirements') {
     const live = v.items.filter((x) => x.status !== 'dropped'), p0 = live.filter((x) => x.priority === 'P0'), draft = p0.filter((x) => x.status === 'draft')
     out.push({ text: '需求条目已登记，P0 条目全部已确认', ok: live.length > 0 && !draft.length, evidence: !live.length ? '还没有登记需求条目（item add）' : draft.length ? `还是草稿的 P0 条目：${draft.map((x) => `${x.id} ${x.name}`).join('、')}` : `共 ${live.length} 条，P0 ${p0.length} 条均已确认` })
+  }
+  if (stage === 'test_design') {
+    const live = v.items.filter((x) => x.status !== 'dropped'), bare = live.filter((x) => !v.cases.some((t) => t.items.includes(x.id)))
+    out.push({ text: '用例已登记，每条需求条目都有对应的用例', ok: v.cases.length > 0 && !bare.length, evidence: !v.cases.length ? '还没有登记用例（case add）' : bare.length ? `还没有用例的条目：${bare.map((x) => `${x.id} ${x.name}`).join('、')}（case add --items）` : `${live.length} 条需求条目，${liveCases(v).length} 条用例` })
+  }
+  if (stage === 'test') {
+    const cs = liveCases(v), left = cs.filter((x) => !['pass', 'waived'].includes(x.status))
+    out.push({ text: '用例全部通过或已由人豁免', ok: cs.length > 0 && !left.length, evidence: !cs.length ? '还没有登记用例（case add）' : left.length ? `还没通过：${left.map((x) => `${x.id}（${CASE_STATUS[x.status]}）`).join('、')}` : `共 ${cs.length} 条：${caseCount(cs)}` })
   }
   if (['test', 'release'].includes(stage)) {
     const open = openDefects(v), waived = v.defects.filter((d) => d.status === 'waived')
@@ -367,6 +379,7 @@ const commands = {
   },
   'defect open'(c, f) {
     const v = versionOf(c, f), id = nextId(c, 'BUG')
+    if (f.case) casesOf(v, f.case).length === 1 || fail('--case 只写发现这个缺陷的那一条用例')
     const found = oneOf(f['found-in'], Object.keys(DEFECT_FOUND), '发现阶段 --found-in')
     return commit(c, v.id, { type: 'defect_open', defect: id, title: need(f, 'title', '一句话描述现象'), severity: oneOf(f.severity, ['P0', 'P1', 'P2', 'P3'], '严重程度 --severity'), found_in: found, ...(f.module ? { module: f.module } : {}), ...(f.case ? { case: f.case } : {}) }, f) + `\n编号：${id}（待修复）。在 defects.md 里用这个编号写复现步骤。`
   },
@@ -374,6 +387,9 @@ const commands = {
     const v = versionOf(c, f), d = defectOf(v, f), to = oneOf(f.to, ['fixing', 'fixed', 'verifying', 'open'], '改为 --to')
     if (!DEFECT_NEXT[d.status].includes(to)) fail(`缺陷 ${d.id} 现在是「${DEFECT_STATUS[d.status]}」，不能直接改为「${DEFECT_STATUS[to]}」。可以改为：${DEFECT_NEXT[d.status].filter((x) => x !== 'closed').map((x) => DEFECT_STATUS[x]).join('、')}${DEFECT_NEXT[d.status].includes('closed') ? '，或用 defect close 关闭' : ''}`)
     if (to === 'open') need(f, 'note', '退回或重新打开的原因')
+    // "Verified" means the case that caught it was run again and passed, not that the fix was read and looks right.
+    const tc = to === 'verifying' && v.cases.find((x) => x.id === d.case)
+    if (tc && tc.status !== 'pass') fail(`缺陷 ${d.id} 关联的用例 ${tc.id}（${tc.title}）现在是「${CASE_STATUS[tc.status]}」。重新执行并用 case result 记下通过后，才能改为待验收`)
     return commit(c, v.id, { type: 'defect_status', defect: d.id, status: to, ...(f.assignee ? { assignee: member(c, f.assignee, '修复人') } : {}), ...(f.build ? { build: f.build } : {}), ...(f.note ? { note: f.note } : {}) }, f)
   },
   'defect close'(c, f) {
@@ -383,11 +399,41 @@ const commands = {
   },
   'defect waive'(c, f) {
     const v = versionOf(c, f), d = defectOf(v, f)
-    return commit(c, v.id, { type: 'defect_waive', defect: d.id, scope: need(f, 'scope', '豁免范围：只在什么条件下可以带着它走'), quote: need(f, 'quote', '豁免人的原话'), ...(f.until ? { until: f.until } : {}), ...(f.decision ? { decision: f.decision } : {}) }, f, { byMember: true })
+    return commit(c, v.id, { type: 'defect_waive', defect: d.id, waive_scope: need(f, 'scope', '豁免范围：只在什么条件下可以带着它走'), quote: need(f, 'quote', '豁免人的原话'), ...(f.until ? { until: f.until } : {}), ...(f.decision ? { decision: f.decision } : {}) }, f, { byMember: true })
   },
   'defect list'(c, f) {
     const v = versionOf(c, f), nm = (id) => c.state.members.find((m) => m.id === id)?.name ?? id
     return v.defects.length ? v.defects.map((d) => `${d.id} | ${d.severity} | ${DEFECT_STATUS[d.status]}${d.reopened ? `（退回 ${d.reopened} 次）` : ''} | ${DEFECT_FOUND[d.foundIn]}发现，${d.status === 'closed' ? `用了 ${d.days} 天` : `已 ${d.days} 天`}${d.assignee ? '，修复 ' + nm(d.assignee) : ''}${d.case ? '，用例 ' + d.case : ''} | ${d.title}`).join('\n') : `${v.id} 还没有登记缺陷。`
+  },
+  'case add'(c, f) {
+    const v = versionOf(c, f), items = list(f.items), miss = items.filter((id) => !v.items.some((x) => x.id === id))
+    if (miss.length) fail(`${v.id} 没有需求条目 ${miss.join('、')}。已有：${v.items.map((x) => x.id).join('、') || '（还没有）'}`)
+    const draft = items.filter((id) => v.items.find((x) => x.id === id).status === 'draft')
+    if (draft.length) fail(`需求条目 ${draft.join('、')} 还是草稿，使用者确认后才能为它写用例（item confirm）`)
+    if (!items.length) need(f, 'note', '这条用例不对应任何需求条目时，写明它测的是什么（如兼容性、性能、回归）；对应需求条目的用 --items')
+    const id = nextId(c, 'TC')
+    return commit(c, v.id, { type: 'case_add', tc: id, title: need(f, 'title', '用例标题，一句话'), priority: oneOf(f.priority, ['P0', 'P1', 'P2'], '优先级 --priority'), case_type: oneOf(f.type, Object.keys(CASE_TYPE), '用例类型 --type'), items, ...pick(f, ['module', 'note']) }, f) + `\n编号：${id}（未执行）。在 test-cases.md 里用这个编号写前置条件、步骤和预期结果。`
+  },
+  'case result'(c, f) {
+    const v = versionOf(c, f), ids = casesOf(v, f.case), result = oneOf(f.result, ['pass', 'fail', 'blocked'], '执行结果 --result')
+    const e = { type: 'case_result', cases: ids, result, actual: need(f, 'actual', '实际看到了什么：运行的命令和输出、页面上的表现、截图地址。没有实际执行就不记'), ...pick(f, ['build', 'defect', 'quote']) }
+    if (result !== 'pass' && ids.length > 1) fail('失败和阻塞要一条一条记：每条的实际结果不一样')
+    if (f.defect && !v.defects.some((d) => d.id === f.defect)) fail(`${v.id} 没有缺陷 ${f.defect}。先记这条用例失败，再用 defect open --case ${ids[0]} 登记缺陷`)
+    // A result taken on someone's word carries that person's own sentence about this very case.
+    if (f.quote && ids.length > 1) fail('按人说的话记结果时一次只记一条用例：一句话只对应一条。「都过了」不算逐条通过，请他逐条说')
+    const out = commit(c, v.id, e, f, { byMember: !!f.quote })
+    return out + (result === 'fail' && !f.defect ? `\n下一步：用 defect open --case ${ids[0]} 登记缺陷。` : '')
+  },
+  'case regress'(c, f) { const v = versionOf(c, f); return commit(c, v.id, { type: 'case_regress', cases: casesOf(v, f.case), reason: need(f, 'reason', '为什么要重新执行') }, f) },
+  'case waive'(c, f) {
+    const v = versionOf(c, f), ids = casesOf(v, f.case)
+    if (ids.length > 1) fail('豁免要逐条：一次只豁免一条用例，各用各的原话')
+    return commit(c, v.id, { type: 'case_waive', tc: ids[0], waive_scope: need(f, 'scope', '豁免范围：为什么这条可以不通过就往下走、只在什么条件下成立'), quote: need(f, 'quote', '豁免人的原话'), ...pick(f, ['until', 'decision']) }, f, { byMember: true })
+  },
+  'case list'(c, f) {
+    const v = versionOf(c, f), cs = f.status ? v.cases.filter((x) => x.status === oneOf(f.status, Object.keys(CASE_STATUS), '状态 --status')) : v.cases
+    if (!v.cases.length) return `${v.id} 还没有登记用例。`
+    return `共 ${v.cases.length} 条：${caseCount(v.cases)}\n` + cs.map((x) => { const r = x.runs.at(-1); return `${x.id} | ${x.priority} | ${CASE_TYPE[x.type]} | ${CASE_STATUS[x.status]}${x.why ? '（' + x.why + '）' : ''}${x.waiver ? '（' + x.waiver.scope + '）' : ''} | ${x.items.join('、') || '不对应需求条目'} | 执行 ${x.runs.length} 次${r ? '，最近 ' + r.at.slice(0, 10) + (r.build ? ' 构建 ' + r.build : '') : ''}${x.defect ? '，缺陷 ' + x.defect : ''} | ${x.title}` }).join('\n')
   },
   'downstream-check'(c, f) {
     const v = versionOf(c, f), target = need(f, 'target', '被确认的在途版本')
@@ -521,6 +567,7 @@ function statusText(c, only) {
     if (v.waiting) lines.push(`  等签收：已请 ${v.waiting.to.map(nm).join('、')} 签收，等了 ${v.waiting.days} 天`)
     if (v.items.length) { const n = (st) => v.items.filter((x) => x.status === st).length; lines.push(`  需求条目：${v.items.length - n('dropped')} 条（${[['confirmed', '已确认'], ['changed', '已变更'], ['draft', '草稿']].filter(([k]) => n(k)).map(([k, t]) => `${t} ${n(k)}`).join('，')}${n('dropped') ? `；另有 ${n('dropped')} 条已移出` : ''}）`) }
     if (v.defects.length) { const open = openDefects(v), w = v.defects.filter((d) => d.status === 'waived').length; lines.push(`  缺陷：未关闭 ${open.length} 条${open.length ? `（${['P0', 'P1', 'P2', 'P3'].filter((p) => open.some((d) => d.severity === p)).map((p) => `${p} ${open.filter((d) => d.severity === p).length}`).join('，')}）` : ''} · 已关闭 ${v.defects.length - open.length - w}${w ? ` · 豁免 ${w}` : ''}`) }
+    if (v.cases.length) { const cs = liveCases(v); lines.push(`  用例：${cs.length} 条（${caseCount(cs)}）`) }
     if (v.changes.length) { const open = v.changes.filter((x) => !x.closed); lines.push(`  变更：${v.changes.length} 条${open.length ? `，未完结 ${open.length} 条：${open.map((x) => `${x.id}（${x.summary}）${changeState(x)}`).join('；')}` : '，全部已完结'}`) }
     if (v.decisions.length) lines.push(`  决定：有效 ${v.decisions.filter((d) => !d.replacedBy).length} 条${v.decisions.some((d) => d.replacedBy) ? `，被替代 ${v.decisions.filter((d) => d.replacedBy).length} 条` : ''}（decision list 查看，重新设计前先查）`)
     for (const b of v.blocks) lines.push(`  阻塞 ${b.days} 天（归 ${nm(b.owner)}）：${b.text}`)
@@ -577,13 +624,20 @@ const HELP = `用法：node tools/panel.mjs <命令> [--参数 值 ...]
   stage complete --signer --quote --by                         （之前要有通过的 stage check 和之后的 stage request）
   stage rollback --from --to --reason --quote [--ref] --by      （不用 --stage）
 
-需求条目、缺陷、决定、变更（都要 --version；编号由命令分配：成员标识 + 他自己的流水号，如 BUG-lin-003）
+需求条目、用例、缺陷、决定、变更（都要 --version；编号由命令分配：成员标识 + 他自己的流水号，如 BUG-lin-003）
   item add --name --priority P0|P1|P2 [--module --source] --by
   item confirm --item --quote [--priority] --by                （--by 是确认的成员；确认包含优先级，他改了优先级就带 --priority）
   item change --item --ref 变更编号 [--note] --by                 （变更编号要先用 change open 登记）
   item drop --item --reason --quote --by                       （移出本版本，--by 是决定的成员）
   item list
-  defect open --title --severity P0|P1|P2|P3 --found-in self_test|test|prod_verify|acceptance [--module --case] --by
+  case add --title --priority P0|P1|P2 --type ${Object.keys(CASE_TYPE).join('|')} --items 需求条目,需求条目 [--module --note] --by
+      （--items 是这条用例测的需求条目，必须已确认；不对应任何条目的（兼容性、性能等）不写 --items，用 --note 说明测什么）
+  case result --case 用例[,用例] --result pass|fail|blocked --actual 实际看到了什么 [--build --defect --quote] --by
+      （每执行一次记一次。失败和阻塞一次一条；只听人说的要带他针对这条用例的 --quote，一次一条，--by 是他）
+  case regress --case 用例,用例 --reason --by                   （实现或文档变了、要重新执行。需求条目变更、缺陷修复后会自动标）
+  case waive --case --scope --quote [--until --decision] --by   （不通过也往下走，只有人能定，--by 是豁免的成员）
+  case list [--status ${Object.keys(CASE_STATUS).join('|')}]
+  defect open --title --severity P0|P1|P2|P3 --found-in self_test|test|prod_verify|acceptance [--module --case 已登记的用例编号] --by
   defect status --defect --to fixing|fixed|verifying|open [--assignee --build --note] --by
       （fixed 已修复待复测，verifying 复测通过待人验收；open 是退回或重新打开，要写 --note）
   defect close --defect --verifier --quote --by                （人验收通过）

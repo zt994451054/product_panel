@@ -13,6 +13,8 @@ export const ITEM_STATUS = { draft: '草稿', confirmed: '已确认', changed: '
 export const DEFECT_STATUS = { open: '待修复', fixing: '修复中', fixed: '已修复待复测', verifying: '待验收', closed: '已关闭', waived: '已豁免' }
 // Which status a defect may move to from each status. Reopening always goes back to "open".
 export const DEFECT_NEXT = { open: ['fixing', 'fixed'], fixing: ['fixed', 'open'], fixed: ['verifying', 'open'], verifying: ['closed', 'open'], closed: ['open'], waived: ['open'] }
+export const CASE_STATUS = { pending: '未执行', pass: '通过', fail: '失败', blocked: '阻塞', regress: '需回归', waived: '已豁免' }
+export const CASE_TYPE = { ui: 'UI交互', ui_restore: 'UI还原', backend: '后端', api: '接口', e2e: 'E2E', manual: '手工' }
 export const CHANGE_TYPE = { requirement: '需求变更', design: '设计调整', tech: '技术方案变更', testing: '测试调整', scope_cut: '范围裁剪' }
 export const CHANGE_IMPACT = { none: '不变', expand: '扩大', shrink: '缩小' }
 // The documents a change may touch. A change is finished only when every one it names has been handled.
@@ -48,7 +50,7 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
   const newVersion = (e) => ({
     id: e.version, create: e, attrs: { ...e }, flow: e.flow,
     stages: Object.fromEntries(FLOWS[e.flow].map((s) => [s, { intervals: [], signoff: null, everDone: false, untracked: false, rollbacks: 0 }])),
-    open: null, holds: [], abandoned: null, blocks: [], progress: null, replans: [], rollbacks: [], checks: [], requests: [], downstream: [], items: new Map(), defects: new Map(), decisions: new Map(), changes: new Map(), conflicts: [], duplicates: [], log: [],
+    open: null, holds: [], abandoned: null, blocks: [], progress: null, replans: [], rollbacks: [], checks: [], requests: [], downstream: [], items: new Map(), defects: new Map(), decisions: new Map(), changes: new Map(), cases: new Map(), conflicts: [], duplicates: [], log: [],
   })
   const paused = (v) => v.holds.length > 0 && !v.holds.at(-1).to
   const nextStage = (v) => FLOWS[v.flow].find((s) => !v.stages[s].signoff && !v.stages[s].untracked) ?? null
@@ -97,7 +99,7 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
     const isStage = ['stage_enter', 'stage_complete', 'stage_rollback', 'gate_check', 'signoff_request', 'onboard'].includes(e.type)
     if (isStage && v.abandoned) { bad('版本已放弃，不能再推进阶段'); continue }
     if (isStage && paused(v)) { bad('版本挂起中，恢复后才能推进阶段'); continue }
-    if (v.stages.release.signoff && ['hold', 'abandon', 'replan', 'onboard', 'stage_rollback', 'item_add', 'item_status', 'defect_open', 'defect_status', 'defect_waive', 'decision_add', 'change_open', 'change_affect', 'change_handle', 'change_close'].includes(e.type)) { bad('版本已经发布，不能再挂起、放弃、改期、回退，也不能再改它的需求条目和缺陷、再登记决定和变更。线上有问题按生产缺陷处理，要修就开热修复版本'); continue }
+    if (v.stages.release.signoff && ['hold', 'abandon', 'replan', 'onboard', 'stage_rollback', 'item_add', 'item_status', 'defect_open', 'defect_status', 'defect_waive', 'decision_add', 'change_open', 'change_affect', 'change_handle', 'change_close', 'case_add', 'case_result', 'case_regress', 'case_waive'].includes(e.type)) { bad('版本已经发布，不能再挂起、放弃、改期、回退，也不能再改它的需求条目、用例和缺陷、再登记决定和变更。线上有问题按生产缺陷处理，要修就开热修复版本'); continue }
     const flow = FLOWS[v.flow]
 
     switch (e.type) {
@@ -113,7 +115,11 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
         if (v.open) { bad(`「${STAGE_NAME[v.open]}」还在进行中，不能同时进入「${STAGE_NAME[e.stage] ?? e.stage}」`); continue }
         const next = nextStage(v)
         if (e.stage !== next) { bad(next ? `按流程下一个阶段是「${STAGE_NAME[next]}」，不能直接进入「${STAGE_NAME[e.stage] ?? e.stage}」` : '所有阶段都已签收，版本已发布'); continue }
-        v.stages[e.stage].intervals.push({ from: e.at, to: null }); v.open = e.stage; break
+        v.stages[e.stage].intervals.push({ from: e.at, to: null }); v.open = e.stage
+        // A pass from before testing started (a developer's self-test, or a run before the version went back to
+        // development) was not on the build under test.
+        if (e.stage === 'test') for (const c of v.cases.values()) if (c.status === 'pass') { c.status = 'regress'; c.why = '进入测试阶段前的结果，要在被测构建上重新执行' }
+        break
       }
       case 'gate_check': if (e.stage !== v.open) { bad(`「${STAGE_NAME[e.stage] ?? e.stage}」不在进行中，这次门控核对没有生效`); continue } v.checks.push(e); break
       case 'signoff_request': if (e.stage !== v.open) { bad(`「${STAGE_NAME[e.stage] ?? e.stage}」不在进行中，这次签收请求没有生效`); continue } v.requests.push(e); break
@@ -143,11 +149,12 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
       case 'resume': if (!paused(v)) { bad('版本没有挂起，不需要恢复'); continue } v.holds.at(-1).to = e.at; break
       case 'abandon': if (v.abandoned) { bad('版本已经放弃'); continue } if (paused(v)) v.holds.at(-1).to = e.at; v.abandoned = e; break
       case 'downstream_check': v.downstream.push(e); break
-      case 'item_add': case 'defect_open': case 'decision_add': case 'change_open': {
-        const id = e.item ?? e.defect ?? e.dec ?? e.chg
+      case 'item_add': case 'defect_open': case 'decision_add': case 'change_open': case 'case_add': {
+        const id = e.item ?? e.defect ?? e.dec ?? e.chg ?? e.tc
         if (ledger.has(id)) { bad(`编号 ${id} 已经被占用（${ledger.get(id)} 里先登记的那条生效）。这条后登记的没有生效：作废它再重新登记，会拿到新编号`); continue }
         ledger.set(id, v.id)
-        if (e.type === 'decision_add') {
+        if (e.type === 'case_add') v.cases.set(id, { id, title: e.title, priority: e.priority, type: e.case_type, module: e.module ?? null, items: e.items ?? [], status: 'pending', at: e.at, by: e.by, runs: [], defect: null, why: null, waiver: null })
+        else if (e.type === 'decision_add') {
           // A decision that overrides an earlier one retires it; the old one stays in the record, marked as replaced.
           const old = e.replaces ? v.decisions.get(e.replaces) : null
           if (e.replaces && !old) { ledger.delete(id); bad(`要替代的决定 ${e.replaces} 不在 ${v.id} 里`); continue }
@@ -167,6 +174,8 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
         // A draft that gets reworded is still a draft: nobody has confirmed it yet, and the change must not hide that.
         if (!(e.status === 'changed' && it.status === 'draft')) it.status = e.status
         it.ref = e.ref ?? it.ref
+        // The requirement moved under the test: a pass recorded against the old wording proves nothing about the new one.
+        if (e.status === 'changed') for (const c of v.cases.values()) if (c.items.includes(e.item) && c.status === 'pass') { c.status = 'regress'; c.why = `需求条目 ${e.item} 变更（${e.ref}）` }
         if (e.status === 'confirmed') { it.confirmed = { by: e.by, quote: e.quote, at: e.at }; it.priority = e.priority ?? it.priority }
         break
       }
@@ -176,6 +185,8 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
         if (!DEFECT_NEXT[d.status].includes(e.status)) { bad(`缺陷 ${e.defect} 现在是「${DEFECT_STATUS[d.status]}」，不能直接改为「${DEFECT_STATUS[e.status] ?? e.status}」`); continue }
         if (e.status === 'open') { d.reopened += 1; d.closedAt = null; d.waiver = null }
         if (e.status === 'closed') { d.closedAt = e.at; d.verifier = e.verifier ?? d.verifier; d.closeQuote = e.quote ?? null }
+        // A fix changes the build: the case that caught the defect has to be run again before anyone accepts the fix.
+        if (e.status === 'fixed') for (const c of v.cases.values()) if ((c.id === d.case || c.defect === d.id) && ['fail', 'pass'].includes(c.status)) { c.status = 'regress'; c.why = `缺陷 ${d.id} 已修复，要重新执行` }
         d.status = e.status; if (e.assignee) d.assignedAt = e.at; d.assignee = e.assignee ?? d.assignee; d.build = e.build ?? d.build
         break
       }
@@ -198,11 +209,22 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
         }
         break
       }
+      case 'case_result': case 'case_regress': case 'case_waive': {
+        const ids = e.cases ?? [e.tc], miss = ids.filter((id) => !v.cases.has(id))
+        if (miss.length) { bad(`用例 ${miss.join('、')} 不存在`); continue }
+        for (const id of ids) {
+          const c = v.cases.get(id)
+          if (e.type === 'case_result') { c.runs.push({ at: e.at, by: e.by, result: e.result, build: e.build ?? null, actual: e.actual, defect: e.defect ?? null, quote: e.quote ?? null }); c.status = e.result; c.defect = e.defect ?? (e.result === 'pass' ? null : c.defect); c.why = e.result === 'blocked' ? e.actual : null; c.waiver = null }
+          else if (e.type === 'case_regress') { c.status = 'regress'; c.why = e.reason; c.waiver = null }
+          else { c.status = 'waived'; c.waiver = { by: e.by, quote: e.quote, scope: e.waive_scope, until: e.until ?? null, at: e.at }; c.why = null }
+        }
+        break
+      }
       case 'defect_waive': {
         const d = v.defects.get(e.defect)
         if (!d) { bad(`缺陷 ${e.defect} 不存在`); continue }
         if (['closed', 'waived'].includes(d.status)) { bad(`缺陷 ${e.defect} 已经${DEFECT_STATUS[d.status]}，不需要豁免`); continue }
-        d.status = 'waived'; d.waiver = { by: e.by, quote: e.quote, scope: e.scope, until: e.until ?? null, decision: e.decision ?? null, at: e.at }
+        d.status = 'waived'; d.waiver = { by: e.by, quote: e.quote, scope: e.waive_scope, until: e.until ?? null, decision: e.decision ?? null, at: e.at }
         break
       }
     }
@@ -261,7 +283,7 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
       rollbacks: v.rollbacks.map((r) => ({ at: r.at, from: r.from, to: r.to, reason: r.reason, ref: r.ref ?? null })),
       downstream: v.downstream.map((d) => ({ target: d.target, result: d.result, evidence: d.evidence, by: d.confirmed?.by ?? null })),
       items: [...v.items.values()],
-      decisions: [...v.decisions.values()], changes: [...v.changes.values()],
+      decisions: [...v.decisions.values()], changes: [...v.changes.values()], cases: [...v.cases.values()],
       defects: [...v.defects.values()].map((d) => ({ ...d, days: dayDiff(d.at, d.closedAt ?? now), hours: Math.round(hours(d.at, d.closedAt ?? now)) })),
       createId: v.create.id, deployedToProduction: project.deploys.some((d) => d.env === 'production' && !['rollback', 'verify'].includes(d.action) && d.versions.includes(v.id)),
       conflicts: v.conflicts.map((c) => ({ id: c.e.id, type: c.e.type, at: c.e.at, by: c.e.by, why: c.why, branch: c.e.src?.branch ?? null, here: !!c.e.src?.here })),

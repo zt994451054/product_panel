@@ -25,7 +25,7 @@
    - 进入 `foundation/design/prototype/`，读 README.md 确认目标终端路径及启动命令，`npm run dev` 启动对应终端原型（原型已更新到基准之后时，以基准提交为准）
    - 还原要求见原型 README「还原优先级」：高保真页面的布局、组件、文案、状态、交互与原型一致；参考还原页面的视觉风格一致，交互和流程同样须与原型一致
 7. 按 AGENTS.md §4 读相关规范后开发：`standards/coding/general.md`、`standards/coding/languages/` 中用到的语言，前端加 `standards/coding/frontend/`，用到的 `standards/middleware/` 文件，提交和分支看 `standards/version-control/`
-8. **提测前自测**：以 `testing/test-cases.md` 中本次涉及的 P0 用例为依据逐条自测；前端页面与原型逐页对照，偏差修正后再提测
+8. **提测前自测**：以 `testing/test-cases.md` 中本次涉及的 P0 用例为依据逐条自测，每条用 `case result` 记下结果和实际看到了什么；前端页面与原型逐页对照，偏差修正后再提测。自测的通过只说明可以提测：进入「测试」阶段时，命令会把之前的通过全部退回「需回归」，要在被测构建上重新执行
 9. 开发完成后按分支策略创建分支、提交、push 到远端
 10. 驱动面板中不产生任何代码文件变更（缺陷状态等文档照常更新）
 

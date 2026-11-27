@@ -50,7 +50,15 @@ function feat(r, v, at) {
 function pass(r, v, stage, d, signer = 'xiaolin') {
   const at = (h) => `2026-10-${String(d).padStart(2, '0')}T${h}:00`
   r.ok('stage', 'enter', '--version', v, '--stage', stage, '--by', 'ai', '--at', at('09'))
-  if (stage === 'requirements' && !r.state().versions.find((x) => x.id === v).items.length) feat(r, v, at('10'))
+  const ver = r.state().versions.find((x) => x.id === v)
+  if (stage === 'requirements' && !ver.items.length) feat(r, v, at('10'))
+  // The test-design gate wants a case for every item; the test gate wants every case passed.
+  if (stage === 'test_design') {
+    for (const it of ver.items.filter((x) => x.status !== 'dropped' && !ver.cases.some((t) => t.items.includes(x.id)))) r.ok('case', 'add', '--version', v, '--title', '正常预约', '--priority', 'P0', '--type', 'api', '--items', it.id, '--by', 'ai', '--at', at('10'))
+    if (!ver.items.length && !ver.cases.length) r.ok('case', 'add', '--version', v, '--title', '修复点回归', '--priority', 'P0', '--type', 'api', '--note', '热修复的回归', '--by', 'ai', '--at', at('10'))
+  }
+  const todo = stage === 'test' ? ver.cases.filter((t) => !['pass', 'waived'].includes(t.status)).map((t) => t.id) : []
+  if (todo.length) r.ok('case', 'result', '--version', v, '--case', todo.join(','), '--result', 'pass', '--actual', '接口返回 200', '--by', 'ai', '--at', at('10'))
   r.ok('stage', 'check', '--version', v, '--stage', stage, '--check', '条件|ok|依据|manual', '--by', 'ai', '--at', at('15'))
   r.ok('stage', 'request', '--version', v, '--stage', stage, '--to', signer, '--summary', '摘要', '--by', 'ai', '--at', at('16'))
   r.ok('stage', 'complete', '--version', v, '--stage', stage, '--signer', signer, '--quote', '可以', '--by', 'ai', '--at', at('17'))
@@ -449,7 +457,9 @@ test('defects: status order, human close, waiver, and the test gate', () => {
   const V = ['--version', 'v1.0.0'], at = (h) => `2026-10-08T${h}:00`
   r.ok('stage', 'enter', ...V, '--stage', 'test', '--by', 'ai', '--at', at('09'))
   r.no(/发现阶段/, 'defect', 'open', ...V, '--title', 'x', '--severity', 'P1', '--found-in', 'prod', '--by', 'ai')
-  assert.match(r.ok('defect', 'open', ...V, '--title', '关闭通知后仍收到邮件', '--severity', 'P1', '--found-in', 'test', '--case', 'TC-zhouzhou-002', '--by', 'ai', '--at', at('10')), /BUG-zhouzhou-001/)
+  r.no(/没有用例 TC-zhouzhou-009/, 'defect', 'open', ...V, '--title', 'x', '--severity', 'P1', '--found-in', 'test', '--case', 'TC-zhouzhou-009', '--by', 'ai')
+  assert.match(r.ok('case', 'result', ...V, '--case', 'TC-zhouzhou-001', '--result', 'fail', '--actual', '关闭通知后仍收到邮件', '--build', 'b11', '--by', 'ai', '--at', at('09:30')), /defect open --case TC-zhouzhou-001/)
+  assert.match(r.ok('defect', 'open', ...V, '--title', '关闭通知后仍收到邮件', '--severity', 'P1', '--found-in', 'test', '--case', 'TC-zhouzhou-001', '--by', 'ai', '--at', at('10')), /BUG-zhouzhou-001/)
   assert.match(r.ok('defect', 'open', ...V, '--title', '按钮错位', '--severity', 'P3', '--found-in', 'test', '--by', 'ai', '--at', at('10')), /BUG-zhouzhou-002/)
   const B1 = ['--defect', 'BUG-zhouzhou-001']
   r.no(/不能直接改为「待验收」/, 'defect', 'status', ...V, ...B1, '--to', 'verifying', '--by', 'ai')
@@ -459,6 +469,10 @@ test('defects: status order, human close, waiver, and the test gate', () => {
   r.no(/缺少 --note/, 'defect', 'status', ...V, ...B1, '--to', 'open', '--by', 'ai')
   r.ok('defect', 'status', ...V, ...B1, '--to', 'open', '--note', '复测仍收到邮件', '--by', 'ai', '--at', at('13'))
   r.ok('defect', 'status', ...V, ...B1, '--to', 'fixed', '--build', 'b13', '--by', 'ai', '--at', at('14'))
+  // A fix sends the case that caught the defect back for another run; "verified" needs that run to pass.
+  assert.equal(r.state().versions[0].cases[0].status, 'regress')
+  r.no(/现在是「需回归」/, 'defect', 'status', ...V, ...B1, '--to', 'verifying', '--by', 'ai')
+  r.ok('case', 'result', ...V, '--case', 'TC-zhouzhou-001', '--result', 'pass', '--actual', '关闭通知后 10 分钟内没有收到邮件', '--build', 'b13', '--by', 'ai', '--at', at('14:30'))
   r.ok('defect', 'status', ...V, ...B1, '--to', 'verifying', '--by', 'ai', '--at', at('15'))
   assert.match(r.ok('stage', 'check', ...V, '--stage', 'test', '--check', 'a|ok|b', '--by', 'ai', '--at', at('15')), /未关闭：BUG-zhouzhou-001（P1，待验收）、BUG-zhouzhou-002（P3，待修复）/)
   r.no(/不是在册成员/, 'defect', 'close', ...V, ...B1, '--verifier', 'ai', '--quote', '好', '--by', 'ai')
@@ -467,7 +481,7 @@ test('defects: status order, human close, waiver, and the test gate', () => {
   r.ok('defect', 'waive', ...V, '--defect', 'BUG-zhouzhou-002', '--scope', '只影响后台列表页', '--until', 'v1.1.0', '--quote', '这个先不修，下版处理', '--by', 'xiaolin', '--at', at('17'))
   assert.match(r.ok('stage', 'check', ...V, '--stage', 'test', '--check', 'a|ok|b', '--by', 'ai', '--at', at('18')), /门控通过/)
   const d = r.state().versions[0].defects
-  assert.equal(d[0].status, 'closed'); assert.equal(d[0].reopened, 1); assert.equal(d[0].assignee, 'azhe'); assert.equal(d[0].build, 'b13'); assert.equal(d[1].waiver.until, 'v1.1.0')
+  assert.equal(d[0].status, 'closed'); assert.equal(d[0].reopened, 1); assert.equal(d[0].assignee, 'azhe'); assert.equal(d[0].build, 'b13'); assert.equal(d[1].waiver.until, 'v1.1.0'); assert.equal(d[1].waiver.scope, '只影响后台列表页')
   assert.match(r.ok('status'), /缺陷：未关闭 0 条 · 已关闭 1 · 豁免 1/)
   assert.match(r.ok('defect', 'list', ...V), /BUG-zhouzhou-001 \| P1 \| 已关闭（退回 1 次）/)
 })
@@ -623,4 +637,62 @@ test('changes: registered before the documents move, growing the scope needs a d
   // A decision that has been overridden no longer backs a wider scope.
   r.ok('decision', 'add', ...V, '--question', '取消功能放哪个版本', '--decision', '挪到下个版本', '--quote', '取消还是下版再做', '--replaces', 'D-xiaolin-001', '--by', 'xiaolin', '--at', '2026-10-03T09:00')
   r.no(/已经被 D-xiaolin-002 替代/, ...O, '--scope-impact', 'expand', '--affects', 'requirements', '--decision', 'D-xiaolin-001', '--by', 'ai', '--at', '2026-10-03T09:10')
+})
+
+test('cases: every item needs one before development, every case has to pass or be waived by a person before release', () => {
+  const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00'); r.ok('whoami', '--set', 'zhouzhou')
+  const V = ['--version', 'v1.0.0'], at = (d, h) => `2026-10-${d}T${h}:00`
+  pass(r, 'v1.0.0', 'requirements', 2); pass(r, 'v1.0.0', 'design', 3); pass(r, 'v1.0.0', 'tech', 4)
+  const f1 = r.state().versions[0].items[0].id
+  const f2 = r.ok('item', 'add', ...V, '--name', '取消预约', '--priority', 'P1', '--by', 'ai', '--at', at('05', '08')).match(/编号：(\S+?)（/)[1]
+  r.ok('stage', 'enter', ...V, '--stage', 'test_design', '--by', 'ai', '--at', at('05', '09'))
+  const C = ['case', 'add', ...V, '--priority', 'P0', '--type', 'api']
+  r.no(/还是草稿/, ...C, '--title', '取消成功', '--items', f2, '--by', 'ai')
+  r.no(/没有需求条目 FEAT-x/, ...C, '--title', 'x', '--items', 'FEAT-x', '--by', 'ai')
+  r.no(/缺少 --note/, ...C, '--title', '弱网下预约', '--by', 'ai')
+  r.no(/用例类型/, 'case', 'add', ...V, '--priority', 'P0', '--type', 'unit', '--title', 'x', '--items', f1, '--by', 'ai')
+  assert.match(r.ok(...C, '--title', '正常预约', '--items', f1, '--by', 'ai', '--at', at('05', '10')), /编号：TC-zhouzhou-001（未执行）/)
+  // The gate counts by itself: the second item has no case yet.
+  assert.match(r.ok('stage', 'check', ...V, '--stage', 'test_design', '--check', 'a|ok|b', '--by', 'ai', '--at', at('05', '11')), /还没有用例的条目：FEAT-zhouzhou-002 取消预约/)
+  r.ok('item', 'confirm', ...V, '--item', f2, '--quote', '取消预约这条确认', '--by', 'xiaolin', '--at', at('05', '12'))
+  r.ok(...C, '--title', '开始前 2 小时内不能取消', '--items', f2, '--by', 'ai', '--at', at('05', '13'))
+  r.ok(...C, '--title', '弱网下预约', '--note', '兼容性', '--by', 'ai', '--at', at('05', '13'))
+  assert.match(r.ok('stage', 'check', ...V, '--stage', 'test_design', '--check', 'a|ok|b', '--by', 'ai', '--at', at('05', '15')), /门控通过/)
+  r.ok('stage', 'request', ...V, '--stage', 'test_design', '--to', 'zhouzhou', '--summary', '摘要', '--by', 'ai', '--at', at('05', '16'))
+  r.ok('stage', 'complete', ...V, '--stage', 'test_design', '--signer', 'zhouzhou', '--quote', '可以', '--by', 'ai', '--at', at('05', '17'))
+  pass(r, 'v1.0.0', 'dev', 6)
+  const R = ['case', 'result', ...V], T = (n) => `TC-zhouzhou-00${n}`, cs = () => r.state().versions[0].cases
+  // A developer's self-test pass does not survive into the test stage: it was not on the build under test.
+  r.ok(...R, '--case', T(1), '--result', 'pass', '--actual', '本地自测通过', '--by', 'ai', '--at', at('06', '18'))
+  r.ok('stage', 'enter', ...V, '--stage', 'test', '--by', 'ai', '--at', at('07', '09'))
+  assert.equal(cs()[0].status, 'regress'); assert.match(cs()[0].why, /进入测试阶段前/)
+  r.no(/缺少 --actual/, ...R, '--case', T(1), '--result', 'pass', '--by', 'ai')
+  r.no(/没有用例 TC-zhouzhou-007/, ...R, '--case', 'TC-zhouzhou-007', '--result', 'pass', '--actual', 'x', '--by', 'ai')
+  r.no(/一条一条记/, ...R, '--case', `${T(1)},${T(2)}`, '--result', 'fail', '--actual', 'x', '--by', 'ai')
+  // A result taken on someone's word: one case per sentence, and the speaker is a member.
+  r.no(/一次只记一条/, ...R, '--case', `${T(1)},${T(2)}`, '--result', 'pass', '--actual', '口述', '--quote', '这两条我都测过了', '--by', 'zhouzhou')
+  r.no(/不是在册成员/, ...R, '--case', T(1), '--result', 'pass', '--actual', '口述', '--quote', '正常预约我手工测过了没问题', '--by', 'ai')
+  r.ok(...R, '--case', `${T(1)},${T(2)}`, '--result', 'pass', '--actual', '接口测试 12 条断言全过', '--build', 'b20', '--by', 'ai', '--at', at('07', '10'))
+  r.ok(...R, '--case', T(3), '--result', 'blocked', '--actual', '没有弱网环境', '--by', 'ai', '--at', at('07', '11'))
+  assert.match(r.ok('stage', 'check', ...V, '--stage', 'test', '--check', 'a|ok|b', '--by', 'ai', '--at', at('07', '12')), /还没通过：TC-zhouzhou-003（阻塞）/)
+  assert.match(r.ok('status'), /用例：3 条（通过 2、阻塞 1）/)
+  // Changing a requirement sends its passed cases back for another run.
+  const chg = r.ok('change', 'open', ...V, '--type', 'requirement', '--summary', '取消截止改为 1 小时', '--reason', '用户反馈', '--scope-impact', 'none', '--affects', 'requirements,test-cases', '--by', 'ai', '--at', at('07', '13')).match(/编号：(\S+?)。/)[1]
+  r.ok('item', 'change', ...V, '--item', f2, '--ref', chg, '--by', 'ai', '--at', at('07', '14'))
+  assert.deepEqual(cs().map((x) => x.status), ['pass', 'regress', 'blocked']); assert.match(cs()[1].why, new RegExp(chg))
+  r.ok(...R, '--case', T(2), '--result', 'pass', '--actual', '开始前 59 分钟取消被拒绝', '--build', 'b21', '--by', 'ai', '--at', at('07', '15'))
+  r.ok('case', 'regress', ...V, '--case', T(1), '--reason', '预约接口重构', '--by', 'ai', '--at', at('07', '15'))
+  r.ok(...R, '--case', T(1), '--result', 'pass', '--actual', '正常预约我手工测过了没问题', '--quote', '正常预约我手工测过了没问题', '--by', 'zhouzhou', '--at', at('07', '16'))
+  // Only a person can let a case that did not pass through, one case at a time.
+  r.no(/不是在册成员/, 'case', 'waive', ...V, '--case', T(3), '--scope', '弱网', '--quote', '先不测', '--by', 'ai')
+  r.no(/逐条/, 'case', 'waive', ...V, '--case', `${T(2)},${T(3)}`, '--scope', '弱网', '--quote', '先不测', '--by', 'zhouzhou')
+  r.ok('case', 'waive', ...V, '--case', T(3), '--scope', '没有弱网环境，本版只在办公网使用', '--until', 'v1.1.0', '--quote', '弱网这条这版先不测，下版补', '--by', 'zhouzhou', '--at', at('07', '17'))
+  assert.match(r.ok('stage', 'check', ...V, '--stage', 'test', '--check', 'a|ok|b', '--by', 'ai', '--at', at('07', '18')), /门控通过/)
+  assert.equal(cs()[0].runs.length, 3); assert.equal(cs()[2].waiver.until, 'v1.1.0')
+  const out = r.ok('case', 'list', ...V)
+  assert.match(out, /共 3 条：通过 2、已豁免 1/); assert.match(out, /TC-zhouzhou-003 \| P0 \| 接口 \| 已豁免（没有弱网环境，本版只在办公网使用）/)
+  assert.equal(r.ok('case', 'list', ...V, '--status', 'waived').split('\n').length, 2)
+  // A case whose only item left the version no longer holds the gate.
+  r.ok('item', 'drop', ...V, '--item', f2, '--reason', '延后', '--quote', '取消预约挪到下一版', '--by', 'xiaolin', '--at', at('07', '19'))
+  assert.match(r.ok('status'), /用例：2 条（通过 1、已豁免 1）/)
 })

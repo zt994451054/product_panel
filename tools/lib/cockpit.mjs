@@ -55,7 +55,7 @@ export function cockpitData(c) {
     between: v.next, waiting: v.waiting && { ...v.waiting, since: loc(v.waiting.since) },
     blocks: v.blocks.map((b) => ({ ...b, at: loc(b.at) })),
     decisions: v.decisions.map((d) => ({ ...d, at: loc(d.at) })), changes: v.changes.map((x) => ({ ...x, at: loc(x.at), closed: x.closed && { ...x.closed, at: loc(x.closed.at) } })),
-    items: v.items.map((x) => ({ ...x, at: loc(x.at) })), defects: v.defects.map((d) => ({ ...d, at: loc(d.at), closedAt: loc(d.closedAt) })),
+    items: v.items.map((x) => ({ ...x, at: loc(x.at) })), cases: v.cases.map((x) => ({ ...x, at: loc(x.at), runs: x.runs.map((r) => ({ ...r, at: loc(r.at) })) })), defects: v.defects.map((d) => ({ ...d, at: loc(d.at), closedAt: loc(d.closedAt) })),
     hold: v.hold && { ...v.hold, since: loc(v.hold.since) }, holds: v.holds.map((h) => ({ from: loc(h.from), to: loc(h.to) })),
     progress: v.progress && { text: v.progress.text, at: loc(v.progress.at) },
     rollbacks: v.rollbacks.map((r) => ({ ...r, at: loc(r.at) })), downstream: v.downstream,

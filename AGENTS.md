@@ -65,7 +65,7 @@
 - CLAUDE.md / .cursorrules / .windsurfrules 均以本文件为准，不单独维护内容
 - 规则只认面板里写下的内容。只存在于某个 AI 私有记忆或某次对话里的约定，不算规则；要长期生效就写进面板（见 [agents/rules-log.md](./agents/rules-log.md)）
 - **每次新对话，执行顺序必须是：§0 初始化检查 → §3 状态速查 → 执行对应 SOP**
-- **状态只通过 `node tools/panel.mjs` 改**：阶段、签收、负责人、配置项、设置、部署、需求条目和缺陷的状态、使用者的决定、变更的登记和处理进度都是命令写入的事件，不手写进文档，也不手工创建、修改、删除事件文件
+- **状态只通过 `node tools/panel.mjs` 改**：阶段、签收、负责人、配置项、设置、部署、需求条目、用例和缺陷的状态、使用者的决定、变更的登记和处理进度都是命令写入的事件，不手写进文档，也不手工创建、修改、删除事件文件
 - §0 检查未通过时，禁止执行任何日常工作，必须先完成初始化
 - **即使你认为已了解项目情况，每次新对话开始时仍必须重新执行 §0 和 §3，不得跳过**
 - 遇到本文件未覆盖的情况，执行 §7 的不确定处理流程
@@ -199,7 +199,7 @@
 | 数据库设计 | `versions/{ver}/engineering/db-design.md` | |
 | 发布流程 | `versions/{ver}/engineering/release.md` | |
 | 测试计划 | `versions/{ver}/testing/test-plan.md` | |
-| 测试用例 | `versions/{ver}/testing/test-cases.md` | 单文件 |
+| 测试用例（覆盖矩阵、评审、步骤和预期结果） | `versions/{ver}/testing/test-cases.md` | 单文件；每条用例用 `case add` 登记，执行结果用 `case result` 记录，不写在文档里 |
 | 缺陷记录（复现步骤、修复历程等叙述） | `versions/{ver}/testing/defects.md` | 单文件；状态用 `defect` 命令记录，不写在文档里 |
 | 测试报告 | `versions/{ver}/testing/test-report.md` | |
 | **验收计划与用例** | `versions/{ver}/testing/acceptance.md` | 发布后生产验收，SOP-12 |
@@ -210,7 +210,7 @@
 | 全量表结构（基线） | `engineering/docs/db-schema/full-schema.md` | 跨版本基线，版本发布合入（SOP-07）|
 | 全量 API 清单（基线） | `engineering/docs/api-docs/openapi.yaml` | 跨版本基线，版本发布合入（SOP-07）|
 | 全量功能清单（基线） | `foundation/product-arch/overview.md` 模块详情 | 跨版本基线，版本发布合入（SOP-07）|
-| 项目与版本的状态（阶段、签收、负责人、配置项、设置、部署、需求条目和缺陷的状态、决定、变更） | `state/events/`、`versions/{ver}/state/events/` | 只由 `node tools/panel.mjs` 写入，一件事一个文件，写入后不改（[agents/state.md](./agents/state.md)） |
+| 项目与版本的状态（阶段、签收、负责人、配置项、设置、部署、需求条目、用例和缺陷的状态、决定、变更） | `state/events/`、`versions/{ver}/state/events/` | 只由 `node tools/panel.mjs` 写入，一件事一个文件，写入后不改（[agents/state.md](./agents/state.md)） |
 | 配置项的定义和填写说明 | `state/defs/config-items.json`、`SETUP.md` 卡片 | 状态不写在这两处 |
 | 面板状态工具 | `tools/` | 命令入口 `tools/panel.mjs` |
 | 驾驶舱（给人看的只读页面） | 根目录 `cockpit.html` | `node tools/panel.mjs render` 生成，不入库 |
@@ -255,8 +255,9 @@
 ❌ 未按该阶段的签收设置取得签收就记录阶段完成，或事后补做门控核对（见 SOP-07 阶段签收）
 ❌ 替使用者编写、润色或拼接「原话」，或把他针对别的事说的话挪来当这次的原话；自行修改签收设置；用比设置更宽松的方式放行
 ❌ 把使用者口头说的、自己没有核实的情况记成门控条件「通过」（见 SOP-07 阶段签收）
-❌ 手工创建、修改、删除 `state/` 下的事件文件，或在文档里手写阶段、签收、进度、需求条目状态、缺陷状态、变更的处理状态
-❌ 自己编登记编号（需求条目、缺陷由命令分配；其他编号按「成员标识 + 本人流水号」取，见 [agents/state.md](./agents/state.md) §9）（写错了用作废命令，见 [agents/state.md](./agents/state.md)）
+❌ 手工创建、修改、删除 `state/` 下的事件文件，或在文档里手写阶段、签收、进度、需求条目状态、用例执行结果、缺陷状态、变更的处理状态
+❌ 没有实际执行就记用例通过；把使用者一句「都过了」记成多条用例通过（转述的结果一次一条，带他针对这条用例的原话）
+❌ 自己编登记编号（需求条目、用例、缺陷、决定、变更由命令分配；其他编号按「成员标识 + 本人流水号」取，见 [agents/state.md](./agents/state.md) §9）（写错了用作废命令，见 [agents/state.md](./agents/state.md)）
 ❌ 把使用者没回答的事写成「已同意」，或把简短回答扩大解读；重新设计时违背仍有效的决定（`decision list`）；在原话里加自己的说明或截短原话；自己完结变更
 ❌ 变更扩大版本范围时，未经负责人确认就修改文档（见 SOP-04）
 
@@ -306,5 +307,5 @@
 | 需要使用者决策（豁免、签收、范围变更、新口径），使用者答「你决定」「都行」或未答复 | 视为未决策：保持现状，在对应文档记「未获决策」，下次汇报时再次列出；不替使用者决定 |
 | 发现 requirements.md 中存在未解决的「⛔ 阻塞型待确认问题」 | 停止推进，列出具体阻塞问题，提示用户先解决后再继续 |
 | 技术方案需引入新依赖但许可证不明确（如 GPL/AGPL 等传染性许可证）| 告知用户许可证风险，等待确认后再引入，不擅自决策 |
-| 缺陷修复完成但关联测试用例执行状态仍为 ❌ | 提示将关联用例重新标记为「⏳ 未执行」，重新执行通过后用 `defect status --to verifying` 记为待验收 |
+| 缺陷修复完成但关联用例还没重新执行 | 记修复（`defect status --to fixed`）后关联用例会变成「需回归」；重新执行并用 `case result` 记下通过后，才能用 `defect status --to verifying` 记为待验收（没通过时命令会拒绝） |
 
