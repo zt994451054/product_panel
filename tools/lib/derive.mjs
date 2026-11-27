@@ -167,7 +167,7 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
         // A draft that gets reworded is still a draft: nobody has confirmed it yet, and the change must not hide that.
         if (!(e.status === 'changed' && it.status === 'draft')) it.status = e.status
         it.ref = e.ref ?? it.ref
-        if (e.status === 'confirmed') it.confirmed = { by: e.by, quote: e.quote, at: e.at }
+        if (e.status === 'confirmed') { it.confirmed = { by: e.by, quote: e.quote, at: e.at }; it.priority = e.priority ?? it.priority }
         break
       }
       case 'defect_status': {
@@ -187,10 +187,13 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
         else if (e.type === 'change_handle') {
           const miss = e.targets.filter((key) => !ch.targets.some((t) => t.key === key))
           if (miss.length) { bad(`变更 ${e.chg} 的影响范围里没有 ${miss.join('、')}`); continue }
-          for (const t of ch.targets) if (e.targets.includes(t.key)) t.done = { at: e.at, by: e.by, note: e.note ?? null }
+          for (const t of ch.targets) if (e.targets.includes(t.key)) t.done = { at: e.at, by: e.by, note: e.note ?? null, pending: e.pending ?? null }
         } else {
           const left = ch.targets.filter((t) => !t.done)
           if (left.length) { bad(`变更 ${e.chg} 还有没处理的：${left.map((t) => CHANGE_TARGETS[t.key] ?? t.key).join('、')}`); continue }
+          // A document that was edited but still carries something nobody has confirmed is not finished.
+          const open = ch.targets.filter((t) => t.done.pending)
+          if (open.length) { bad(`变更 ${e.chg} 还有待确认的内容：${open.map((t) => `${CHANGE_TARGETS[t.key] ?? t.key}（${t.done.pending}）`).join('、')}`); continue }
           ch.closed = { at: e.at, by: e.by, quote: e.quote }
         }
         break

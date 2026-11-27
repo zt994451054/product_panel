@@ -72,6 +72,9 @@ const defectOf = (v, f) => v.defects.find((x) => x.id === need(f, 'defect', '缺
 const changeOf = (v, f) => v.changes.find((x) => x.id === need(f, 'change', '变更编号')) ?? fail(`${v.id} 没有变更 ${f.change}。已有：${v.changes.map((x) => x.id).join('、') || '（还没有）'}`)
 const targetsOf = (raw, label) => { const keys = list(raw); if (!keys.length) fail(`缺少 ${label}。可选：${Object.entries(CHANGE_TARGETS).map(([k, t]) => `${k} ${t}`).join('、')}`); return keys.map((k) => oneOf(k, Object.keys(CHANGE_TARGETS), '受影响的文档')) }
 const leftOf = (ch) => ch.targets.filter((t) => !t.done).map((t) => CHANGE_TARGETS[t.key])
+const pendingOf = (ch) => ch.targets.filter((t) => t.done?.pending).map((t) => `${CHANGE_TARGETS[t.key]}（${t.done.pending}）`)
+// Where a change stands, in words: documents not touched yet, documents edited but with something still unconfirmed.
+const changeState = (ch) => ch.closed ? '已完结' : [leftOf(ch).length ? '还差 ' + leftOf(ch).join('、') : '', pendingOf(ch).length ? '已改但还有待确认：' + pendingOf(ch).join('、') : ''].filter(Boolean).join('；') || '文档都处理完了，等使用者确认完结'
 // Handing the choice back is not a decision, however it is phrased. Compared after dropping punctuation and sentence-final particles.
 const NOT_A_DECISION = ['你决定', '你定', '你来定', '你自己定', '你自己决定', '你帮我定', '你替我定', '你直接定', '你直接替我定', '你帮我决定', '你看着办', '看着办', '你自己看着办', '都行', '都可以', '随便', '随你', '听你的', '你做主', '你拿主意', '你说了算', '按规范来', '你按规范来', '按规范', '按规矩来']
 // A bare yes only means something next to the suggestion it answers.
@@ -301,9 +304,13 @@ const commands = {
   },
   'item add'(c, f) {
     const v = versionOf(c, f), id = nextId(c, 'FEAT')
-    return commit(c, v.id, { type: 'item_add', item: id, module: f.module ?? null, name: need(f, 'name', '功能描述，一句话'), priority: oneOf(f.priority, ['P0', 'P1', 'P2'], '优先级 --priority'), ...(f.source ? { source: f.source } : {}) }, f) + `\n编号：${id}（草稿）。在 requirements.md 的功能清单里用这个编号。`
+    return commit(c, v.id, { type: 'item_add', item: id, module: f.module ?? null, name: need(f, 'name', '功能描述，一句话'), priority: oneOf(f.priority, ['P0', 'P1', 'P2'], '优先级 --priority'), ...(f.source ? { source: f.source } : {}) }, f) + `\n编号：${id}（草稿）。在 requirements.md 的功能清单里用这个编号。优先级 ${f.priority} 和内容一样还没确认：请使用者确认这条时把优先级一起列给他。`
   },
-  'item confirm'(c, f) { const v = versionOf(c, f), it = itemOf(v, f); return commit(c, v.id, { type: 'item_status', item: it.id, status: 'confirmed', quote: need(f, 'quote', '确认人的原话') }, f, { byMember: true }) },
+  'item confirm'(c, f) {
+    const v = versionOf(c, f), it = itemOf(v, f)
+    if (f.priority) oneOf(f.priority, ['P0', 'P1', 'P2'], '优先级 --priority')
+    return commit(c, v.id, { type: 'item_status', item: it.id, status: 'confirmed', quote: need(f, 'quote', '确认人的原话'), ...(f.priority ? { priority: f.priority } : {}) }, f, { byMember: true }) + `\n确认的是「${it.name}」，优先级 ${f.priority ?? it.priority}。`
+  },
   'item change'(c, f) {
     const v = versionOf(c, f), it = itemOf(v, f), ref = need(f, 'ref', '对应的变更编号（先用 change open 登记）')
     if (!v.changes.some((x) => x.id === ref)) fail(`${v.id} 没有登记过变更 ${ref}。先用 change open 登记这次变更，再用它给的编号。已有：${v.changes.map((x) => x.id).join('、') || '（还没有）'}`)
@@ -312,7 +319,7 @@ const commands = {
   'item drop'(c, f) { const v = versionOf(c, f), it = itemOf(v, f); return commit(c, v.id, { type: 'item_status', item: it.id, status: 'dropped', reason: need(f, 'reason', '移出原因'), quote: need(f, 'quote', '决定人的原话') }, f, { byMember: true }) },
   'item list'(c, f) {
     const v = versionOf(c, f)
-    return v.items.length ? v.items.map((x) => `${x.id} | ${x.priority} | ${ITEM_STATUS[x.status]}${x.ref ? '（' + x.ref + '）' : ''} | ${x.module ? x.module + '：' : ''}${x.name}`).join('\n') : `${v.id} 还没有登记需求条目。`
+    return v.items.length ? v.items.map((x) => `${x.id} | ${x.priority}${x.status === 'draft' ? '（未确认）' : ''} | ${ITEM_STATUS[x.status]}${x.ref ? '（' + x.ref + '）' : ''} | ${x.module ? x.module + '：' : ''}${x.name}`).join('\n') : `${v.id} 还没有登记需求条目。`
   },
   'decision add'(c, f) {
     const v = versionOf(c, f), quote = String(need(f, 'quote', '决定人的原话')).trim(), said = bare(quote)
@@ -344,18 +351,19 @@ const commands = {
     const v = versionOf(c, f), ch = changeOf(v, f), targets = targetsOf(f.target, '--target（改完的是哪份文档）')
     const miss = targets.filter((k) => !ch.targets.some((t) => t.key === k))
     if (miss.length) fail(`变更 ${ch.id} 的影响范围里没有 ${miss.map((k) => CHANGE_TARGETS[k]).join('、')}。确实受影响的话先运行 change affect --add ${miss.join(',')}`)
-    const out = commit(c, v.id, { type: 'change_handle', chg: ch.id, targets, ...(f.note ? { note: f.note } : {}) }, f)
-    const left = ch.targets.filter((t) => !t.done && !targets.includes(t.key)).map((t) => CHANGE_TARGETS[t.key])
-    return out + (left.length ? `\n${ch.id} 还差：${left.join('、')}` : `\n${ch.id} 受影响的文档都处理完了。请使用者确认后运行 change close（要他的原话）。`)
+    const out = commit(c, v.id, { type: 'change_handle', chg: ch.id, targets, ...(f.note ? { note: f.note } : {}), ...(f.pending ? { pending: f.pending } : {}) }, f)
+    const now = load(c.root, { PANEL_NOW: c.now.toISOString() }).state.versions.find((x) => x.id === v.id).changes.find((x) => x.id === ch.id)
+    return out + `\n${ch.id}：${changeState(now)}${leftOf(now).length || pendingOf(now).length ? '' : '（change close，要他的原话）'}`
   },
   'change close'(c, f) {
-    const v = versionOf(c, f), ch = changeOf(v, f), left = leftOf(ch)
+    const v = versionOf(c, f), ch = changeOf(v, f), left = leftOf(ch), open = pendingOf(ch)
     if (left.length) fail(`变更 ${ch.id} 还有没处理的：${left.join('、')}。处理完再完结`)
+    if (open.length) fail(`变更 ${ch.id} 还有待确认的内容：${open.join('、')}。使用者确认并改好后，对这份文档再运行一次 change handle（不带 --pending），然后才能完结`)
     return commit(c, v.id, { type: 'change_close', chg: ch.id, quote: need(f, 'quote', '确认人的原话') }, f, { byMember: true })
   },
   'change list'(c, f) {
     const v = versionOf(c, f)
-    return v.changes.length ? v.changes.map((x) => `${x.id} | ${CHANGE_TYPE[x.type]} | 范围${CHANGE_IMPACT[x.impact]}${x.decision ? '（' + x.decision + '）' : ''} | ${x.closed ? '已完结' : leftOf(x).length ? '处理中，还差 ' + leftOf(x).join('、') : '文档都处理完了，等使用者确认完结'} | ${x.at.slice(0, 16).replace('T', ' ')} 登记 | ${x.summary}`).join('\n') : `${v.id} 还没有登记变更。`
+    return v.changes.length ? v.changes.map((x) => `${x.id} | ${CHANGE_TYPE[x.type]} | 范围${CHANGE_IMPACT[x.impact]}${x.decision ? '（' + x.decision + '）' : ''} | ${changeState(x)} | ${x.at.slice(0, 16).replace('T', ' ')} 登记 | ${x.summary}`).join('\n') : `${v.id} 还没有登记变更。`
   },
   'defect open'(c, f) {
     const v = versionOf(c, f), id = nextId(c, 'BUG')
@@ -513,7 +521,7 @@ function statusText(c, only) {
     if (v.waiting) lines.push(`  等签收：已请 ${v.waiting.to.map(nm).join('、')} 签收，等了 ${v.waiting.days} 天`)
     if (v.items.length) { const n = (st) => v.items.filter((x) => x.status === st).length; lines.push(`  需求条目：${v.items.length - n('dropped')} 条（${[['confirmed', '已确认'], ['changed', '已变更'], ['draft', '草稿']].filter(([k]) => n(k)).map(([k, t]) => `${t} ${n(k)}`).join('，')}${n('dropped') ? `；另有 ${n('dropped')} 条已移出` : ''}）`) }
     if (v.defects.length) { const open = openDefects(v), w = v.defects.filter((d) => d.status === 'waived').length; lines.push(`  缺陷：未关闭 ${open.length} 条${open.length ? `（${['P0', 'P1', 'P2', 'P3'].filter((p) => open.some((d) => d.severity === p)).map((p) => `${p} ${open.filter((d) => d.severity === p).length}`).join('，')}）` : ''} · 已关闭 ${v.defects.length - open.length - w}${w ? ` · 豁免 ${w}` : ''}`) }
-    if (v.changes.length) { const open = v.changes.filter((x) => !x.closed); lines.push(`  变更：${v.changes.length} 条${open.length ? `，未完结 ${open.length} 条：${open.map((x) => `${x.id}（${x.summary}）${leftOf(x).length ? '还差 ' + leftOf(x).join('、') : '文档已处理完，等使用者确认完结'}`).join('；')}` : '，全部已完结'}`) }
+    if (v.changes.length) { const open = v.changes.filter((x) => !x.closed); lines.push(`  变更：${v.changes.length} 条${open.length ? `，未完结 ${open.length} 条：${open.map((x) => `${x.id}（${x.summary}）${changeState(x)}`).join('；')}` : '，全部已完结'}`) }
     if (v.decisions.length) lines.push(`  决定：有效 ${v.decisions.filter((d) => !d.replacedBy).length} 条${v.decisions.some((d) => d.replacedBy) ? `，被替代 ${v.decisions.filter((d) => d.replacedBy).length} 条` : ''}（decision list 查看，重新设计前先查）`)
     for (const b of v.blocks) lines.push(`  阻塞 ${b.days} 天（归 ${nm(b.owner)}）：${b.text}`)
     if (s.online.deployedNotReleased.includes(v.id)) lines.push('  已部署到生产，发布完成还没签收')
@@ -571,7 +579,7 @@ const HELP = `用法：node tools/panel.mjs <命令> [--参数 值 ...]
 
 需求条目、缺陷、决定、变更（都要 --version；编号由命令分配：成员标识 + 他自己的流水号，如 BUG-lin-003）
   item add --name --priority P0|P1|P2 [--module --source] --by
-  item confirm --item --quote --by                             （--by 是确认的成员）
+  item confirm --item --quote [--priority] --by                （--by 是确认的成员；确认包含优先级，他改了优先级就带 --priority）
   item change --item --ref 变更编号 [--note] --by                 （变更编号要先用 change open 登记）
   item drop --item --reason --quote --by                       （移出本版本，--by 是决定的成员）
   item list
@@ -588,7 +596,8 @@ const HELP = `用法：node tools/panel.mjs <命令> [--参数 值 ...]
   change open --type ${Object.keys(CHANGE_TYPE).join('|')} --summary --reason --scope-impact none|expand|shrink --affects 文档,文档 [--decision 决定编号] --by
       （先登记，再改文档；范围扩大 expand 必须带 --decision。--affects 可选：${Object.keys(CHANGE_TARGETS).join('、')}）
   change affect --change --add 文档,文档 --by                   （做的过程中发现还影响别的文档）
-  change handle --change --target 文档,文档 [--note] --by        （改完一份记一次）
+  change handle --change --target 文档,文档 [--note --pending 还有什么待确认] --by
+      （改完一份记一次。文档改了但里面还留着没确认的内容（待确认的数字、口径），写 --pending；确认并改好后不带 --pending 再记一次）
   change close --change --quote --by                           （全部处理完，使用者确认后完结；--by 是确认的成员）
   change list
 
