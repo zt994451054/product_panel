@@ -429,7 +429,9 @@ test('requirement items: numbers are per member, the requirements gate counts th
   r.no(/已经移出/, 'item', 'confirm', ...V, '--item', 'FEAT-xiaolin-002', '--quote', '好', '--by', 'xiaolin', '--at', '2026-10-02T11:30')
   assert.match(r.ok('stage', 'check', ...V, '--stage', 'requirements', '--check', 'a|ok|b', '--by', 'ai', '--at', '2026-10-02T11:40'), /门控通过/)
   r.no(/缺少 --ref/, 'item', 'change', ...V, '--item', 'FEAT-xiaolin-001', '--by', 'ai')
-  r.ok('item', 'change', ...V, '--item', 'FEAT-xiaolin-001', '--ref', 'CHANGE-xiaolin-001', '--by', 'ai', '--at', '2026-10-02T12:00')
+  r.no(/没有登记过变更 CHANGE-xiaolin-001/, 'item', 'change', ...V, '--item', 'FEAT-xiaolin-001', '--ref', 'CHANGE-xiaolin-001', '--by', 'ai')
+  const chg = r.ok('change', 'open', ...V, '--type', 'requirement', '--summary', '时段改 15 分钟', '--reason', '门店反馈', '--scope-impact', 'none', '--affects', 'requirements', '--by', 'ai', '--at', '2026-10-02T11:50').match(/编号：(\S+?)。/)[1]
+  r.ok('item', 'change', ...V, '--item', 'FEAT-xiaolin-001', '--ref', chg, '--by', 'ai', '--at', '2026-10-02T12:00')
   const v = r.state().versions[0]
   assert.deepEqual(v.items.map((x) => x.status), ['draft', 'changed', 'dropped', 'draft'])
   assert.match(r.ok('status'), /需求条目：3 条（已变更 1，草稿 2；另有 1 条已移出）/)
@@ -527,11 +529,13 @@ test('a production deployment stays flagged until what is actually running has b
 test('changing a requirement item that nobody has confirmed leaves it a draft', () => {
   const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00')
   const V = ['--version', 'v1.0.0'], id = r.ok('item', 'add', ...V, '--name', '预约取消', '--priority', 'P0', '--by', 'ai').match(/编号：(\S+?)（/)[1]
-  r.ok('item', 'change', ...V, '--item', id, '--ref', 'CHANGE-xiaolin-001', '--by', 'ai')
+  const change = () => r.ok('change', 'open', ...V, '--type', 'requirement', '--summary', '改截止时间', '--reason', '使用者要求', '--scope-impact', 'none', '--affects', 'requirements', '--by', 'ai').match(/编号：(\S+?)。/)[1]
+  const c1 = change()
+  r.ok('item', 'change', ...V, '--item', id, '--ref', c1, '--by', 'ai')
   let it = r.state().versions[0].items[0]
-  assert.equal(it.status, 'draft'); assert.equal(it.ref, 'CHANGE-xiaolin-001')
+  assert.equal(it.status, 'draft'); assert.equal(it.ref, c1)
   r.ok('item', 'confirm', ...V, '--item', id, '--quote', '确认', '--by', 'xiaolin')
-  r.ok('item', 'change', ...V, '--item', id, '--ref', 'CHANGE-xiaolin-002', '--by', 'ai')
+  r.ok('item', 'change', ...V, '--item', id, '--ref', change(), '--by', 'ai')
   assert.equal(r.state().versions[0].items[0].status, 'changed')
 })
 
@@ -560,4 +564,57 @@ test('familiar fields are recorded per member and only produce a hint, never a r
   const bug = r.ok('defect', 'open', '--version', 'v1.0.0', '--title', '时段重复', '--severity', 'P1', '--found-in', 'test', '--by', 'ai', '--at', '2026-10-06T11:00').match(/编号：(\S+?)（/)[1]
   r.ok('defect', 'status', '--version', 'v1.0.0', '--defect', bug, '--to', 'fixing', '--assignee', 'xiaolin', '--by', 'ai', '--at', '2026-10-06T12:00')
   assert.match(r.ok('status'), /又在 前端或后端（1 次） 做过决定/)
+})
+
+test('decisions: the quote holds only what the person said, handing the choice back is not a decision', () => {
+  const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00'); r.ok('whoami', '--set', 'xiaolin')
+  const V = ['--version', 'v1.0.0'], D = ['decision', 'add', ...V, '--question', '取消截止时间', '--decision', '开始前 2 小时']
+  r.no(/不是在册成员/, ...D, '--quote', '取消就按开始前 2 小时吧', '--by', 'ai')
+  for (const q of ['你决定', '你看着办吧。', '都行', '你直接替我定了吧', '按规范来']) r.no(/不算决定/, ...D, '--quote', q, '--by', 'xiaolin')
+  r.no(/填到 --refers-to/, ...D, '--quote', '按建议（指：开始前 2 小时）', '--by', 'xiaolin')
+  for (const q of ['按建议', '可以', '好的', '按你的建议来']) r.no(/加 --refers-to/, ...D, '--quote', q, '--by', 'xiaolin')
+  assert.match(r.ok(...D, '--quote', '取消就按开始前 2 小时吧', '--docs', 'requirements.md', '--by', 'xiaolin', '--at', '2026-10-02T10:00'), /编号：D-xiaolin-001/)
+  // One "按建议" may settle several listed suggestions: each is its own record pointing at its own suggestion.
+  r.ok('decision', 'add', ...V, '--question', '预约上限', '--decision', '3 个', '--quote', '按建议', '--refers-to', '第 2 条：上限 3 个', '--by', 'xiaolin', '--at', '2026-10-02T10:05')
+  r.ok('decision', 'add', ...V, '--question', '时段长度', '--decision', '30 分钟', '--quote', '按建议', '--refers-to', '第 1 条：30 分钟', '--by', 'xiaolin', '--at', '2026-10-02T10:06')
+  // A sentence said about a decision is not also the confirmation of something else.
+  const item = r.ok('item', 'add', ...V, '--name', '取消预约', '--priority', 'P0', '--by', 'ai', '--at', '2026-10-02T10:10').match(/编号：(\S+?)（/)[1]
+  r.no(/已经记作另一件事的原话/, 'item', 'confirm', ...V, '--item', item, '--quote', '取消就按开始前 2 小时吧', '--by', 'xiaolin')
+  r.no(/没有决定 D-xiaolin-009/, ...D, '--quote', '改成 1 小时', '--replaces', 'D-xiaolin-009', '--by', 'xiaolin')
+  r.ok('decision', 'add', ...V, '--question', '取消截止时间', '--decision', '开始前 1 小时', '--quote', '还是改成 1 小时', '--replaces', 'D-xiaolin-001', '--by', 'xiaolin', '--at', '2026-10-03T10:00')
+  r.no(/已经被 D-xiaolin-004 替代/, ...D, '--quote', '再改回 2 小时', '--replaces', 'D-xiaolin-001', '--by', 'xiaolin', '--at', '2026-10-03T11:00')
+  const ds = r.state().versions[0].decisions
+  assert.deepEqual(ds.map((d) => [d.id, d.replacedBy]), [['D-xiaolin-001', 'D-xiaolin-004'], ['D-xiaolin-002', null], ['D-xiaolin-003', null], ['D-xiaolin-004', null]])
+  assert.equal(ds[1].refersTo, '第 2 条：上限 3 个'); assert.equal(ds[1].quote, '按建议')
+  assert.match(r.ok('decision', 'list', ...V), /D-xiaolin-001 \| 被 D-xiaolin-004 替代/)
+  assert.match(r.ok('status'), /决定：有效 3 条，被替代 1 条/)
+})
+
+test('changes: registered before the documents move, growing the scope needs a decision, closing needs every document and a person', () => {
+  const r = ready(); newVersion(r, 'v1.0.0', '2026-10-01T09:00'); r.ok('whoami', '--set', 'xiaolin')
+  const V = ['--version', 'v1.0.0'], O = ['change', 'open', ...V, '--type', 'requirement', '--summary', '新增预约取消', '--reason', '门店要求']
+  r.no(/受影响的文档「readme」不合法/, ...O, '--scope-impact', 'none', '--affects', 'readme', '--by', 'ai')
+  r.no(/缺少 --affects/, ...O, '--scope-impact', 'none', '--by', 'ai')
+  r.no(/范围扩大要先有负责人的决定/, ...O, '--scope-impact', 'expand', '--affects', 'requirements', '--by', 'ai')
+  r.no(/没有决定 D-xiaolin-001/, ...O, '--scope-impact', 'expand', '--affects', 'requirements', '--decision', 'D-xiaolin-001', '--by', 'ai')
+  r.ok('decision', 'add', ...V, '--question', '取消功能放哪个版本', '--decision', '纳入 v1.0.0', '--quote', '取消这版就做', '--by', 'xiaolin', '--at', '2026-10-02T10:00')
+  assert.match(r.ok(...O, '--scope-impact', 'expand', '--affects', 'requirements,design-spec', '--decision', 'D-xiaolin-001', '--by', 'ai', '--at', '2026-10-02T10:10'), /编号：CHANGE-xiaolin-001/)
+  assert.match(r.ok('status'), /未完结 1 条：CHANGE-xiaolin-001（新增预约取消）还差 需求文档、产品设计/)
+  const C = ['--change', 'CHANGE-xiaolin-001']
+  r.no(/还有没处理的：需求文档、产品设计/, 'change', 'close', ...V, ...C, '--quote', '改完了', '--by', 'xiaolin')
+  r.no(/影响范围里没有 测试用例.*change affect --add test-cases/, 'change', 'handle', ...V, ...C, '--target', 'test-cases', '--by', 'ai')
+  r.ok('change', 'affect', ...V, ...C, '--add', 'test-cases', '--by', 'ai', '--at', '2026-10-02T10:20')
+  assert.match(r.ok('change', 'handle', ...V, ...C, '--target', 'requirements,design-spec', '--by', 'ai', '--at', '2026-10-02T11:00'), /还差：测试用例/)
+  assert.match(r.ok('change', 'handle', ...V, ...C, '--target', 'test-cases', '--by', 'ai', '--at', '2026-10-02T12:00'), /都处理完了/)
+  assert.match(r.ok('change', 'list', ...V), /范围扩大（D-xiaolin-001） \| 文档都处理完了，等使用者确认完结 \| 2026-10-02 10:10 登记/)
+  // Finishing a change is the person's call, never the agent's.
+  r.no(/不是在册成员/, 'change', 'close', ...V, ...C, '--quote', '改完了', '--by', 'ai')
+  r.ok('change', 'close', ...V, ...C, '--quote', '这次变更我看过了，可以', '--by', 'xiaolin', '--at', '2026-10-02T13:00')
+  r.no(/已经完结/, 'change', 'handle', ...V, ...C, '--target', 'requirements', '--by', 'ai', '--at', '2026-10-02T14:00')
+  const ch = r.state().versions[0].changes[0]
+  assert.equal(ch.closed.by, 'xiaolin'); assert.deepEqual(ch.targets.map((t) => t.key), ['requirements', 'design-spec', 'test-cases'])
+  assert.match(r.ok('status'), /变更：1 条，全部已完结/)
+  // A decision that has been overridden no longer backs a wider scope.
+  r.ok('decision', 'add', ...V, '--question', '取消功能放哪个版本', '--decision', '挪到下个版本', '--quote', '取消还是下版再做', '--replaces', 'D-xiaolin-001', '--by', 'xiaolin', '--at', '2026-10-03T09:00')
+  r.no(/已经被 D-xiaolin-002 替代/, ...O, '--scope-impact', 'expand', '--affects', 'requirements', '--decision', 'D-xiaolin-001', '--by', 'ai', '--at', '2026-10-03T09:10')
 })

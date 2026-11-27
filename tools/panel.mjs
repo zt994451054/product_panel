@@ -8,7 +8,7 @@ import { isAbsolute, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { git, isoIn, profilePaths, readAll, readDefs, readProfile, writeEvent } from './lib/store.mjs'
 import { renderCockpit } from './lib/cockpit.mjs'
-import { CONFIG_STATUS, DEFECT_FOUND, DEFECT_NEXT, DEFECT_STATUS, FIXED_HUMAN, FLOWS, ITEM_STATUS, MODES, STAGES, STAGE_NAME, dayIn, derive } from './lib/derive.mjs'
+import { CHANGE_IMPACT, CHANGE_TARGETS, CHANGE_TYPE, CONFIG_STATUS, DEFECT_FOUND, DEFECT_NEXT, DEFECT_STATUS, FIXED_HUMAN, FLOWS, ITEM_STATUS, MODES, STAGES, STAGE_NAME, dayIn, derive } from './lib/derive.mjs'
 
 class Fail extends Error {}
 const fail = (msg) => { throw new Fail(msg) }
@@ -56,7 +56,7 @@ function versionOf(c, f) {
  * compete for a number. Without a known operator the number is a short random code instead.
  */
 function nextId(c, prefix) {
-  const taken = new Set(c.all.events.map((e) => e.item ?? e.defect).filter(Boolean))
+  const taken = new Set(c.all.events.map((e) => e.item ?? e.defect ?? e.dec ?? e.chg).filter(Boolean))
   if (c.me) {
     const mine = [...taken].filter((id) => id.startsWith(`${prefix}-${c.me}-`)).map((id) => Number(id.slice(prefix.length + c.me.length + 2))).filter(Number.isInteger)
     return `${prefix}-${c.me}-${String(Math.max(0, ...mine) + 1).padStart(3, '0')}`
@@ -69,6 +69,14 @@ function nextId(c, prefix) {
 }
 const itemOf = (v, f) => v.items.find((x) => x.id === need(f, 'item', '需求条目编号')) ?? fail(`${v.id} 没有需求条目 ${f.item}。已有：${v.items.map((x) => x.id).join('、') || '（还没有）'}`)
 const defectOf = (v, f) => v.defects.find((x) => x.id === need(f, 'defect', '缺陷编号')) ?? fail(`${v.id} 没有缺陷 ${f.defect}。已有：${v.defects.map((x) => x.id).join('、') || '（还没有）'}`)
+const changeOf = (v, f) => v.changes.find((x) => x.id === need(f, 'change', '变更编号')) ?? fail(`${v.id} 没有变更 ${f.change}。已有：${v.changes.map((x) => x.id).join('、') || '（还没有）'}`)
+const targetsOf = (raw, label) => { const keys = list(raw); if (!keys.length) fail(`缺少 ${label}。可选：${Object.entries(CHANGE_TARGETS).map(([k, t]) => `${k} ${t}`).join('、')}`); return keys.map((k) => oneOf(k, Object.keys(CHANGE_TARGETS), '受影响的文档')) }
+const leftOf = (ch) => ch.targets.filter((t) => !t.done).map((t) => CHANGE_TARGETS[t.key])
+// Handing the choice back is not a decision, however it is phrased. Compared after dropping punctuation and sentence-final particles.
+const NOT_A_DECISION = ['你决定', '你定', '你来定', '你自己定', '你自己决定', '你帮我定', '你替我定', '你直接定', '你直接替我定', '你帮我决定', '你看着办', '看着办', '你自己看着办', '都行', '都可以', '随便', '随你', '听你的', '你做主', '你拿主意', '你说了算', '按规范来', '你按规范来', '按规范', '按规矩来']
+// A bare yes only means something next to the suggestion it answers.
+const ASSENT = ['可以', '可', '好', '好的', '行', '同意', '没问题', '确认', '嗯', '对', '是', '是的', 'ok', '通过', '就这样', '就这么办']
+const bare = (q) => { let t = String(q).replace(/[\s，。！？!?,.、~～「」“”"']/g, ''); while (/[吧了啊呀哦呢嘛]$/.test(t)) t = t.slice(0, -1); return t }
 const openDefects = (v) => v.defects.filter((d) => !['closed', 'waived'].includes(d.status))
 /** Gate conditions the tool can verify by itself from the ledger, so nobody has to count rows. */
 function autoChecks(v, stage, online) {
@@ -296,11 +304,58 @@ const commands = {
     return commit(c, v.id, { type: 'item_add', item: id, module: f.module ?? null, name: need(f, 'name', '功能描述，一句话'), priority: oneOf(f.priority, ['P0', 'P1', 'P2'], '优先级 --priority'), ...(f.source ? { source: f.source } : {}) }, f) + `\n编号：${id}（草稿）。在 requirements.md 的功能清单里用这个编号。`
   },
   'item confirm'(c, f) { const v = versionOf(c, f), it = itemOf(v, f); return commit(c, v.id, { type: 'item_status', item: it.id, status: 'confirmed', quote: need(f, 'quote', '确认人的原话') }, f, { byMember: true }) },
-  'item change'(c, f) { const v = versionOf(c, f), it = itemOf(v, f); return commit(c, v.id, { type: 'item_status', item: it.id, status: 'changed', ref: need(f, 'ref', '对应的变更编号（CHANGES.md）'), ...(f.note ? { note: f.note } : {}) }, f) },
+  'item change'(c, f) {
+    const v = versionOf(c, f), it = itemOf(v, f), ref = need(f, 'ref', '对应的变更编号（先用 change open 登记）')
+    if (!v.changes.some((x) => x.id === ref)) fail(`${v.id} 没有登记过变更 ${ref}。先用 change open 登记这次变更，再用它给的编号。已有：${v.changes.map((x) => x.id).join('、') || '（还没有）'}`)
+    return commit(c, v.id, { type: 'item_status', item: it.id, status: 'changed', ref, ...(f.note ? { note: f.note } : {}) }, f)
+  },
   'item drop'(c, f) { const v = versionOf(c, f), it = itemOf(v, f); return commit(c, v.id, { type: 'item_status', item: it.id, status: 'dropped', reason: need(f, 'reason', '移出原因'), quote: need(f, 'quote', '决定人的原话') }, f, { byMember: true }) },
   'item list'(c, f) {
     const v = versionOf(c, f)
     return v.items.length ? v.items.map((x) => `${x.id} | ${x.priority} | ${ITEM_STATUS[x.status]}${x.ref ? '（' + x.ref + '）' : ''} | ${x.module ? x.module + '：' : ''}${x.name}`).join('\n') : `${v.id} 还没有登记需求条目。`
+  },
+  'decision add'(c, f) {
+    const v = versionOf(c, f), quote = String(need(f, 'quote', '决定人的原话')).trim(), said = bare(quote)
+    if (/[（(]\s*指\s*[:：]/.test(quote)) fail('原话里只放使用者说的话。「（指：……）」这类说明是你加的，填到 --refers-to（这句话指的是哪条建议）')
+    if (NOT_A_DECISION.includes(said)) fail(`「${quote}」是把选择交回给你，不算决定。保持待确认：说明你的建议和理由，请使用者明确选一个；他没选就不记`)
+    if ((ASSENT.includes(said.toLowerCase()) || /按(你的?|照)?(建议|推荐)|按你说的/.test(said)) && !f['refers-to']) fail(`「${quote}」单看不出同意的是什么。加 --refers-to 写明它指的是上一条消息里逐条列出的哪一条建议；上一条没有逐条列出的，不算决定，重新问`)
+    if (f.replaces && !v.decisions.some((x) => x.id === f.replaces)) fail(`${v.id} 没有决定 ${f.replaces}。已有：${v.decisions.map((x) => x.id).join('、') || '（还没有）'}`)
+    const id = nextId(c, 'D')
+    return commit(c, v.id, { type: 'decision_add', dec: id, question: need(f, 'question', '要定的是什么事，一句话'), text: need(f, 'decision', '定成了什么，一句话'), quote, ...(f['refers-to'] ? { refers_to: f['refers-to'] } : {}), ...(f.docs ? { docs: f.docs } : {}), ...(f.replaces ? { replaces: f.replaces } : {}) }, f, { byMember: true }) + `\n编号：${id}。需要交代来龙去脉的，在 decisions.md 里用这个编号写。`
+  },
+  'decision list'(c, f) {
+    const v = versionOf(c, f), nm = (id) => c.state.members.find((m) => m.id === id)?.name ?? id
+    return v.decisions.length ? v.decisions.map((d) => `${d.id} | ${d.replacedBy ? '被 ' + d.replacedBy + ' 替代' : '有效'} | ${d.at.slice(0, 10)} ${nm(d.by)} | ${d.question} → ${d.text} | 原话「${d.quote}」${d.refersTo ? '（指：' + d.refersTo + '）' : ''}${d.docs ? ' | 影响 ' + d.docs : ''}`).join('\n') : `${v.id} 还没有登记决定。`
+  },
+  'change open'(c, f) {
+    const v = versionOf(c, f), impact = oneOf(f['scope-impact'], Object.keys(CHANGE_IMPACT), '范围影响 --scope-impact')
+    const type = oneOf(f.type, Object.keys(CHANGE_TYPE), '变更类型 --type'), affects = targetsOf(f.affects, '--affects（受影响的文档）')
+    // Growing the scope is the owner's call: it needs a recorded decision before any document changes.
+    if (impact === 'expand') {
+      const ref = need(f, 'decision', '范围扩大要先有负责人的决定：用 decision add 记下他的原话，再把编号填在这里')
+      const d = v.decisions.find((x) => x.id === ref) ?? fail(`${v.id} 没有决定 ${f.decision}。范围扩大要先取得负责人确认并用 decision add 登记`)
+      if (d.replacedBy) fail(`决定 ${d.id} 已经被 ${d.replacedBy} 替代，不能作为这次扩大范围的依据`)
+    } else if (f.decision && !v.decisions.some((x) => x.id === f.decision)) fail(`${v.id} 没有决定 ${f.decision}`)
+    const id = nextId(c, 'CHANGE')
+    return commit(c, v.id, { type: 'change_open', chg: id, change_type: type, summary: need(f, 'summary', '变更了什么，一句话'), reason: need(f, 'reason', '为什么变更'), impact, affects, ...(f.decision ? { decision: f.decision } : {}) }, f) + `\n编号：${id}。现在可以改文档了：每改完一份运行 change handle；细节在 CHANGES.md 里用这个编号写。`
+  },
+  'change affect'(c, f) { const v = versionOf(c, f), ch = changeOf(v, f); return commit(c, v.id, { type: 'change_affect', chg: ch.id, affects: targetsOf(f.add, '--add（新发现受影响的文档）') }, f) },
+  'change handle'(c, f) {
+    const v = versionOf(c, f), ch = changeOf(v, f), targets = targetsOf(f.target, '--target（改完的是哪份文档）')
+    const miss = targets.filter((k) => !ch.targets.some((t) => t.key === k))
+    if (miss.length) fail(`变更 ${ch.id} 的影响范围里没有 ${miss.map((k) => CHANGE_TARGETS[k]).join('、')}。确实受影响的话先运行 change affect --add ${miss.join(',')}`)
+    const out = commit(c, v.id, { type: 'change_handle', chg: ch.id, targets, ...(f.note ? { note: f.note } : {}) }, f)
+    const left = ch.targets.filter((t) => !t.done && !targets.includes(t.key)).map((t) => CHANGE_TARGETS[t.key])
+    return out + (left.length ? `\n${ch.id} 还差：${left.join('、')}` : `\n${ch.id} 受影响的文档都处理完了。请使用者确认后运行 change close（要他的原话）。`)
+  },
+  'change close'(c, f) {
+    const v = versionOf(c, f), ch = changeOf(v, f), left = leftOf(ch)
+    if (left.length) fail(`变更 ${ch.id} 还有没处理的：${left.join('、')}。处理完再完结`)
+    return commit(c, v.id, { type: 'change_close', chg: ch.id, quote: need(f, 'quote', '确认人的原话') }, f, { byMember: true })
+  },
+  'change list'(c, f) {
+    const v = versionOf(c, f)
+    return v.changes.length ? v.changes.map((x) => `${x.id} | ${CHANGE_TYPE[x.type]} | 范围${CHANGE_IMPACT[x.impact]}${x.decision ? '（' + x.decision + '）' : ''} | ${x.closed ? '已完结' : leftOf(x).length ? '处理中，还差 ' + leftOf(x).join('、') : '文档都处理完了，等使用者确认完结'} | ${x.at.slice(0, 16).replace('T', ' ')} 登记 | ${x.summary}`).join('\n') : `${v.id} 还没有登记变更。`
   },
   'defect open'(c, f) {
     const v = versionOf(c, f), id = nextId(c, 'BUG')
@@ -458,6 +513,8 @@ function statusText(c, only) {
     if (v.waiting) lines.push(`  等签收：已请 ${v.waiting.to.map(nm).join('、')} 签收，等了 ${v.waiting.days} 天`)
     if (v.items.length) { const n = (st) => v.items.filter((x) => x.status === st).length; lines.push(`  需求条目：${v.items.length - n('dropped')} 条（${[['confirmed', '已确认'], ['changed', '已变更'], ['draft', '草稿']].filter(([k]) => n(k)).map(([k, t]) => `${t} ${n(k)}`).join('，')}${n('dropped') ? `；另有 ${n('dropped')} 条已移出` : ''}）`) }
     if (v.defects.length) { const open = openDefects(v), w = v.defects.filter((d) => d.status === 'waived').length; lines.push(`  缺陷：未关闭 ${open.length} 条${open.length ? `（${['P0', 'P1', 'P2', 'P3'].filter((p) => open.some((d) => d.severity === p)).map((p) => `${p} ${open.filter((d) => d.severity === p).length}`).join('，')}）` : ''} · 已关闭 ${v.defects.length - open.length - w}${w ? ` · 豁免 ${w}` : ''}`) }
+    if (v.changes.length) { const open = v.changes.filter((x) => !x.closed); lines.push(`  变更：${v.changes.length} 条${open.length ? `，未完结 ${open.length} 条：${open.map((x) => `${x.id}（${x.summary}）${leftOf(x).length ? '还差 ' + leftOf(x).join('、') : '文档已处理完，等使用者确认完结'}`).join('；')}` : '，全部已完结'}`) }
+    if (v.decisions.length) lines.push(`  决定：有效 ${v.decisions.filter((d) => !d.replacedBy).length} 条${v.decisions.some((d) => d.replacedBy) ? `，被替代 ${v.decisions.filter((d) => d.replacedBy).length} 条` : ''}（decision list 查看，重新设计前先查）`)
     for (const b of v.blocks) lines.push(`  阻塞 ${b.days} 天（归 ${nm(b.owner)}）：${b.text}`)
     if (s.online.deployedNotReleased.includes(v.id)) lines.push('  已部署到生产，发布完成还没签收')
     for (const m of v.pendingMerges) lines.push(`  ⚠ 还欠一次合入：${m.from} 的改动${m.result === 'partial' ? '只合入了一部分' : '暂缓合入'}（${m.evidence}）`)
@@ -512,10 +569,10 @@ const HELP = `用法：node tools/panel.mjs <命令> [--参数 值 ...]
   stage complete --signer --quote --by                         （之前要有通过的 stage check 和之后的 stage request）
   stage rollback --from --to --reason --quote [--ref] --by      （不用 --stage）
 
-需求条目和缺陷（都要 --version；编号由命令分配：成员标识 + 他自己的流水号，如 BUG-lin-003）
+需求条目、缺陷、决定、变更（都要 --version；编号由命令分配：成员标识 + 他自己的流水号，如 BUG-lin-003）
   item add --name --priority P0|P1|P2 [--module --source] --by
   item confirm --item --quote --by                             （--by 是确认的成员）
-  item change --item --ref 变更编号 [--note] --by
+  item change --item --ref 变更编号 [--note] --by                 （变更编号要先用 change open 登记）
   item drop --item --reason --quote --by                       （移出本版本，--by 是决定的成员）
   item list
   defect open --title --severity P0|P1|P2|P3 --found-in self_test|test|prod_verify|acceptance [--module --case] --by
@@ -524,6 +581,16 @@ const HELP = `用法：node tools/panel.mjs <命令> [--参数 值 ...]
   defect close --defect --verifier --quote --by                （人验收通过）
   defect waive --defect --scope --quote [--until --decision] --by   （--by 是豁免的成员）
   defect list
+  decision add --question --decision --quote [--refers-to --docs --replaces 旧决定编号] --by   （--by 是做决定的成员）
+      （--quote 只放他说的话；「按建议」「可以」这类短话必须加 --refers-to 写明指的是上一条里的哪条建议；
+        「你决定」「都行」「按规范来」不算决定，命令不记；推翻旧决定用 --replaces）
+  decision list
+  change open --type ${Object.keys(CHANGE_TYPE).join('|')} --summary --reason --scope-impact none|expand|shrink --affects 文档,文档 [--decision 决定编号] --by
+      （先登记，再改文档；范围扩大 expand 必须带 --decision。--affects 可选：${Object.keys(CHANGE_TARGETS).join('、')}）
+  change affect --change --add 文档,文档 --by                   （做的过程中发现还影响别的文档）
+  change handle --change --target 文档,文档 [--note] --by        （改完一份记一次）
+  change close --change --quote --by                           （全部处理完，使用者确认后完结；--by 是确认的成员）
+  change list
 
 其他
   note --version --text --by

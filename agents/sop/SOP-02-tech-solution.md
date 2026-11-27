@@ -19,7 +19,7 @@
 8. **核心实现路径验证**：找出本版本技术上最没把握、一旦不成立方案就要推翻的实现路径（如第三方能力、关键算法、性能瓶颈、跨系统调用），`requirements.md` 中未验证的技术 / 外部类关键假设都要列入，逐条实测（写最小验证代码，放在 `engineering/workspace/`，不合入主分支）或指出系统中已有的同类实现；结论和证据写入 `tech-solution.md`「核心实现路径验证」节（workspace 不入面板，证据要写明运行命令和关键输出，或已有实现的仓库路径）
    - 只验证「能不能做出来」；兼容性、性能达标等验收项属于测试阶段，**不作为进入开发的门槛**
    - 验证结论回写需求的假设表；假设不成立 → 按 SOP-04 改需求或方案，并告诉使用者
-   - 修改已有方案前先查 `decisions.md`，不违背仍有效的决定
+   - 修改已有方案前先运行 `decision list`，不违背仍有效的决定
 9. 技术方案完成后按 SOP-07 核对门控、请使用者签收，用命令记录后进入「测试设计」；不在文档里手写阶段状态
 
 **完成标志**：方案文档已落档，核心实现路径已验证，基线已同步（如有），变更已记录（如有）
@@ -33,7 +33,7 @@
 > 用户说：「v1.1.0 要引入 Kafka 替代 Redis Pub/Sub」
 >
 > AI 正确行为：
-> ① 先执行 SOP-04 在 CHANGES.md 记录变更
+> ① 先执行 SOP-04，用 `change open` 登记变更
 > ② 写 versions/v1.1.0/engineering/tech-solution.md
 > ③ 更新 foundation/tech-arch/overview.md 技术栈说明
 > ④ 新建 foundation/tech-arch/decisions/ADR-002-kafka-replace-redis-pubsub.md

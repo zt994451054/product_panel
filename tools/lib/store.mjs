@@ -10,7 +10,7 @@ import { join } from 'node:path'
 const EVENT_PATH = /^(?:state\/events|versions\/([^/]+)\/state\/events)\/([^/]+)\.json$/
 const COMMON = ['id', 'type', 'at', 'recorded_at', 'recorded_by', 'by']
 export const PROJECT_TYPES = ['project_init', 'project_update', 'member_add', 'member_update', 'member_deactivate', 'setting_set', 'config_set', 'module_set', 'deploy', 'void']
-export const VERSION_TYPES = ['version_create', 'version_update', 'replan', 'onboard', 'stage_enter', 'progress', 'block', 'unblock', 'gate_check', 'signoff_request', 'stage_complete', 'stage_rollback', 'hold', 'resume', 'abandon', 'downstream_check', 'item_add', 'item_status', 'defect_open', 'defect_status', 'defect_waive', 'void']
+export const VERSION_TYPES = ['version_create', 'version_update', 'replan', 'onboard', 'stage_enter', 'progress', 'block', 'unblock', 'gate_check', 'signoff_request', 'stage_complete', 'stage_rollback', 'hold', 'resume', 'abandon', 'downstream_check', 'item_add', 'item_status', 'defect_open', 'defect_status', 'defect_waive', 'decision_add', 'change_open', 'change_affect', 'change_handle', 'change_close', 'void']
 
 export function git(root, args, opts = {}) {
   try { return execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'], maxBuffer: 1 << 28, ...opts }) } catch { return null }

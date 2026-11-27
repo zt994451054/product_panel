@@ -9,9 +9,9 @@
    - 更新 backlog.md：「纳入版本」填当前版本号，状态改为「已纳入版本」（SOP-00.5）
 2. 在 `versions/{当前版本}/product/requirements.md` 下创建或补充功能模块（将 backlog 需求点展开为完整需求）
    - 功能清单每新增一行，运行 `item add` 登记，把分配的编号填进表里；状态不写在文档里。使用者确认某条需求后运行 `item confirm`（`--quote` 填原话）；决定不在本版本做的运行 `item drop`
-   - 改写已有需求、重做设计或原型前，先查 `versions/{当前版本}/decisions.md`，不违背仍有效的决定
+   - 改写已有需求、重做设计或原型前，先运行 `decision list --version {当前版本}`，不违背仍有效的决定
    - 需求依赖但没亲自验证过的事实（第三方能力、现有系统支持、线上数据），写进「实现前提与待验证假设」，标出哪些是关键假设
-   - 请使用者确认需求时，把未验证的假设一起列出来；待确认问题有了答复，按原话记入 `decisions.md`
+   - 请使用者确认需求时，把未验证的假设一起列出来；待确认问题有了答复，按原话用 `decision add` 登记
 3. 如是需求变更 → 先执行 SOP-04 记录变更，再修改文档，并对受影响的条目运行 `item change --ref {变更编号}`
 4. 如涉及产品架构调整 → 同步更新 `foundation/product-arch/` + changelog.md（版本需求与基线有差异时怎么处理见 [baselines.md](../baselines.md)）
 5. **产品设计收尾时固定原型基准**：原型更新完成并提交后，在 `design-spec.md`「原型增量」节填写原型基准（面板提交号 + 原型路径）、本版本改动区域、页面映射表的还原优先级、设计验收点；还原优先级在此确定，后续测试阶段不得下调
@@ -34,17 +34,12 @@
 > 用户说：「v1.0.0 的注册流程要改，去掉邮箱验证，改成手机号验证」
 >
 > AI 正确行为：
-> ① 先在 versions/v1.0.0/CHANGES.md 追加（不先改文档）：
->    ## CHANGE-xiaolin-001 | 2026-04-18 | 需求变更
->    变更内容：注册流程由邮箱验证改为手机号验证
->    影响范围：
->    - [ ] 产品方案 → requirements.md 注册流程章节
->    - [ ] 技术方案 → tech-solution.md 认证模块
->    - [ ] 接口设计 → api-design.md（需新增手机验证接口）
->    - [ ] 测试用例 → testing/test-cases.md 注册相关用例需更新
-> ② 再修改 requirements.md 对应章节
-> ③ 在 CHANGES.md 将产品方案影响项打 [x]
-> ④ 其余影响项保留 [ ] 等待各域负责人处理
+> ① 先登记变更（不先改文档）：
+>    `change open --version v1.0.0 --type requirement --summary "注册由邮箱验证改为手机号验证" --reason "…" --scope-impact none --affects requirements,tech-solution,api-design,test-cases --by ai`
+>    拿到编号 CHANGE-xiaolin-001，在 CHANGES.md 用这个编号写变更细节
+> ② 再修改 requirements.md 对应章节，对受影响的需求条目运行 `item change --ref CHANGE-xiaolin-001`
+> ③ 运行 `change handle --change CHANGE-xiaolin-001 --target requirements`
+> ④ 技术方案、接口设计、测试用例还没处理，在 CHANGES.md 写明由谁处理；`status` 会一直列出它们
 
 **示例：需求状态为「草稿」时的正确处理**
 > 用户说：「帮我给注册功能写技术方案」

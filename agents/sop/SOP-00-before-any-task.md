@@ -2,7 +2,7 @@
 
 **触发**：收到任何与本项目相关的指令
 
-1. 执行 AGENTS.md §0 初始化检查和 §3 状态速查（运行 `node tools/panel.mjs status` → 确定操作哪个版本 → 读该版本 README 和 CHANGES.md）
+1. 执行 AGENTS.md §0 初始化检查和 §3 状态速查（运行 `node tools/panel.mjs status` → 确定操作哪个版本 → 读该版本 README 和 CHANGES.md；没完结的变更、有效的决定看 `status` 输出）
 2. 判断本次指令属于哪类工作，按 AGENTS.md §5 索引找到对应 SOP
 3. 按 AGENTS.md §4 读 `standards/README.md`，找到与本次工作相关的规范文件
 4. 本次要改面板文件时，先用 `git status` 看工作区：有不属于本任务的未提交改动，告诉使用者，不混进本任务（见 [collaboration.md](../collaboration.md) §5）

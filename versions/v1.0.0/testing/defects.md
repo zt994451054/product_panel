@@ -23,7 +23,7 @@
 | 待验收 | 复测通过，等人验收 | `defect status --to verifying` |
 | 已关闭 | 人验收合格 | `defect close --verifier {成员} --quote "{原话}"` |
 | 退回 | 复测或验收不通过，回到待修复 | `defect status --to open --note "{原因}"` |
-| 已豁免 | 使用者逐条明示豁免（任何级别），同时记入 test-report.md「豁免登记」（测试阶段）或 decisions.md 和 acceptance.md「遗留问题说明」（生产业务验证、生产验收阶段）；P0 缺陷豁免前 AI 须向使用者说明风险 | `defect waive --scope --quote --by {成员}` |
+| 已豁免 | 使用者逐条明示豁免（任何级别），同时记入 test-report.md「豁免登记」（测试阶段）或 acceptance.md「遗留问题说明」（生产业务验证、生产验收阶段）；P0 缺陷豁免前 AI 须向使用者说明风险 | `defect waive --scope --quote --by {成员}` |
 
 ---
 

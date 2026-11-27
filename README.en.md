@@ -980,6 +980,8 @@ The template's own process drills (taking a version end to end, handling changes
 | Flagship (Claude Fable 5.2, Claude Opus 5.5, Gemini 4 Hydrogen High) | Hold the gate and sign-off rules, record what they cannot verify as not passed, and write "to be filled in" where nobody supplied a source. Occasionally treat one sentence as confirmation of two things; the commands catch part of this |
 | Lightweight (Gemini 3.8 Flash High) | Makes up content nobody provided (environment addresses, accounts, defect root causes, review conclusions) and records hearsay as something it verified itself. The commands can check what was filled in, not whether it is true |
 
+Even flagship models occasionally slip on a few things no command can catch: asking more than four questions in one round; listing a decision for you without saying what each choice leads to; writing a priority or due date they picked themselves straight into a document; hand-writing a status such as "draft" into a document's prose. Keep an eye on these when reading a report.
+
 We recommend driving the panel with a flagship model. With a lightweight model, check the gate evidence and the quoted words yourself before signing off instead of relying on "gate passed". For other tools, only the entry files pointing to `AGENTS.md` have been checked.
 
 **Can several people each use their own AI?**

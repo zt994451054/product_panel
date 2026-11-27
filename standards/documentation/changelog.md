@@ -12,7 +12,7 @@
 
 | 记录 | 位置 | 用途 | 面向 |
 |------|------|------|------|
-| `CHANGES.md` | `versions/{ver}/CHANGES.md` | 版本进行中的变更留痕（SOP-04）：CHANGE-{成员标识}-xxx、变更阶段、原因、影响范围、负责人；先记录后改文档 | 内部协作与 AI 执行 |
+| `CHANGES.md` | `versions/{ver}/CHANGES.md` | 版本进行中的变更留痕（SOP-04）：变更内容和原因的细节、各文档改了哪里、待处理项的负责人；变更的登记和处理进度用 `change` 命令记录，先登记后改文档 | 内部协作与 AI 执行 |
 | 基线 changelog | `foundation/product-arch/changelog.md`、`foundation/tech-arch/changelog.md` | 产品架构、技术架构基线的变更历史 | 内部 |
 | `CHANGELOG.md` / Release Notes | 工程仓库 / 发布渠道 | 每个已发布版本的变更摘要（Keep a Changelog） | 使用方、调用方、运营 |
 

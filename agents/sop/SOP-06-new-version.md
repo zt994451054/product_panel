@@ -29,7 +29,7 @@
 >    product/requirements.md / design-spec.md
 >    engineering/tech-solution.md / api-design.md / db-design.md / release.md
 >    testing/test-plan.md / test-cases.md / defects.md / test-report.md
->    CHANGES.md（清空变更汇总表和变更详情，注释模板保留）、decisions.md（清空表格行）
+>    CHANGES.md（清空变更详情，注释模板保留）、decisions.md（清空补充说明）
 >    README.md（清空版本背景 / 目标 / 范围 / 交接）
 > ② `version new --version v1.1.0 --goal "支持预约改期" --product xiaolin --engineering azhe --testing zhouzhou --by xiaolin`
 > ④ 告知：「现在有两个未发布的版本，之后请说明要操作哪一个」

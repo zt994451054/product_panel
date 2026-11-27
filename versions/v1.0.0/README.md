@@ -55,4 +55,4 @@
 
 ## 变更与决策
 
-→ 变更见 [CHANGES.md](./CHANGES.md)，使用者的决定见 [decisions.md](./decisions.md)
+→ 变更用 `change list` 查看，细节见 [CHANGES.md](./CHANGES.md)；使用者的决定用 `decision list` 查看，背景说明见 [decisions.md](./decisions.md)

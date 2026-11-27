@@ -13,6 +13,13 @@ export const ITEM_STATUS = { draft: '草稿', confirmed: '已确认', changed: '
 export const DEFECT_STATUS = { open: '待修复', fixing: '修复中', fixed: '已修复待复测', verifying: '待验收', closed: '已关闭', waived: '已豁免' }
 // Which status a defect may move to from each status. Reopening always goes back to "open".
 export const DEFECT_NEXT = { open: ['fixing', 'fixed'], fixing: ['fixed', 'open'], fixed: ['verifying', 'open'], verifying: ['closed', 'open'], closed: ['open'], waived: ['open'] }
+export const CHANGE_TYPE = { requirement: '需求变更', design: '设计调整', tech: '技术方案变更', testing: '测试调整', scope_cut: '范围裁剪' }
+export const CHANGE_IMPACT = { none: '不变', expand: '扩大', shrink: '缩小' }
+// The documents a change may touch. A change is finished only when every one it names has been handled.
+export const CHANGE_TARGETS = {
+  requirements: '需求文档', 'design-spec': '产品设计', prototype: '原型', 'tech-solution': '技术方案', 'api-design': '接口设计', 'db-design': '数据库设计',
+  release: '发布流程', 'release-items': '发布关键项', 'test-plan': '测试计划', 'test-cases': '测试用例', 'product-arch': '产品架构基线', 'tech-arch': '技术架构基线',
+}
 export const DEFECT_FOUND = { self_test: '开发自测', test: '测试', prod_verify: '生产业务验证', acceptance: '生产验收' }
 export const MODES = ['auto', 'review_human', 'human'] // loosest to strictest
 export const DEFAULT_SETTINGS = { 'stall_days.standard': 14, 'stall_days.hotfix': 2 }
@@ -41,7 +48,7 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
   const newVersion = (e) => ({
     id: e.version, create: e, attrs: { ...e }, flow: e.flow,
     stages: Object.fromEntries(FLOWS[e.flow].map((s) => [s, { intervals: [], signoff: null, everDone: false, untracked: false, rollbacks: 0 }])),
-    open: null, holds: [], abandoned: null, blocks: [], progress: null, replans: [], rollbacks: [], checks: [], requests: [], downstream: [], items: new Map(), defects: new Map(), conflicts: [], duplicates: [], log: [],
+    open: null, holds: [], abandoned: null, blocks: [], progress: null, replans: [], rollbacks: [], checks: [], requests: [], downstream: [], items: new Map(), defects: new Map(), decisions: new Map(), changes: new Map(), conflicts: [], duplicates: [], log: [],
   })
   const paused = (v) => v.holds.length > 0 && !v.holds.at(-1).to
   const nextStage = (v) => FLOWS[v.flow].find((s) => !v.stages[s].signoff && !v.stages[s].untracked) ?? null
@@ -90,7 +97,7 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
     const isStage = ['stage_enter', 'stage_complete', 'stage_rollback', 'gate_check', 'signoff_request', 'onboard'].includes(e.type)
     if (isStage && v.abandoned) { bad('版本已放弃，不能再推进阶段'); continue }
     if (isStage && paused(v)) { bad('版本挂起中，恢复后才能推进阶段'); continue }
-    if (v.stages.release.signoff && ['hold', 'abandon', 'replan', 'onboard', 'stage_rollback', 'item_add', 'item_status', 'defect_open', 'defect_status', 'defect_waive'].includes(e.type)) { bad('版本已经发布，不能再挂起、放弃、改期、回退，也不能再改它的需求条目和缺陷。线上有问题按生产缺陷处理，要修就开热修复版本'); continue }
+    if (v.stages.release.signoff && ['hold', 'abandon', 'replan', 'onboard', 'stage_rollback', 'item_add', 'item_status', 'defect_open', 'defect_status', 'defect_waive', 'decision_add', 'change_open', 'change_affect', 'change_handle', 'change_close'].includes(e.type)) { bad('版本已经发布，不能再挂起、放弃、改期、回退，也不能再改它的需求条目和缺陷、再登记决定和变更。线上有问题按生产缺陷处理，要修就开热修复版本'); continue }
     const flow = FLOWS[v.flow]
 
     switch (e.type) {
@@ -136,11 +143,20 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
       case 'resume': if (!paused(v)) { bad('版本没有挂起，不需要恢复'); continue } v.holds.at(-1).to = e.at; break
       case 'abandon': if (v.abandoned) { bad('版本已经放弃'); continue } if (paused(v)) v.holds.at(-1).to = e.at; v.abandoned = e; break
       case 'downstream_check': v.downstream.push(e); break
-      case 'item_add': case 'defect_open': {
-        const id = e.item ?? e.defect
+      case 'item_add': case 'defect_open': case 'decision_add': case 'change_open': {
+        const id = e.item ?? e.defect ?? e.dec ?? e.chg
         if (ledger.has(id)) { bad(`编号 ${id} 已经被占用（${ledger.get(id)} 里先登记的那条生效）。这条后登记的没有生效：作废它再重新登记，会拿到新编号`); continue }
         ledger.set(id, v.id)
-        if (e.type === 'item_add') v.items.set(id, { id, module: e.module ?? null, name: e.name, priority: e.priority, source: e.source ?? null, status: 'draft', at: e.at, by: e.recorded_by, confirmed: null, ref: null })
+        if (e.type === 'decision_add') {
+          // A decision that overrides an earlier one retires it; the old one stays in the record, marked as replaced.
+          const old = e.replaces ? v.decisions.get(e.replaces) : null
+          if (e.replaces && !old) { ledger.delete(id); bad(`要替代的决定 ${e.replaces} 不在 ${v.id} 里`); continue }
+          if (old?.replacedBy) { ledger.delete(id); bad(`决定 ${e.replaces} 已经被 ${old.replacedBy} 替代，要推翻就替代现在有效的那条`); continue }
+          if (old) old.replacedBy = id
+          v.decisions.set(id, { id, question: e.question, text: e.text, quote: e.quote, refersTo: e.refers_to ?? null, docs: e.docs ?? null, by: e.by, at: e.at, replaces: e.replaces ?? null, replacedBy: null })
+        } else if (e.type === 'change_open') {
+          v.changes.set(id, { id, type: e.change_type, summary: e.summary, reason: e.reason, impact: e.impact, decision: e.decision ?? null, at: e.at, by: e.by, targets: e.affects.map((key) => ({ key, done: null })), closed: null })
+        } else if (e.type === 'item_add') v.items.set(id, { id, module: e.module ?? null, name: e.name, priority: e.priority, source: e.source ?? null, status: 'draft', at: e.at, by: e.recorded_by, confirmed: null, ref: null })
         else v.defects.set(id, { id, title: e.title, severity: e.severity, foundIn: e.found_in, module: e.module ?? null, case: e.case ?? null, status: 'open', at: e.at, by: e.recorded_by, assignee: null, verifier: null, build: null, reopened: 0, closedAt: null, waiver: null })
         break
       }
@@ -161,6 +177,22 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
         if (e.status === 'open') { d.reopened += 1; d.closedAt = null; d.waiver = null }
         if (e.status === 'closed') { d.closedAt = e.at; d.verifier = e.verifier ?? d.verifier; d.closeQuote = e.quote ?? null }
         d.status = e.status; if (e.assignee) d.assignedAt = e.at; d.assignee = e.assignee ?? d.assignee; d.build = e.build ?? d.build
+        break
+      }
+      case 'change_affect': case 'change_handle': case 'change_close': {
+        const ch = v.changes.get(e.chg)
+        if (!ch) { bad(`变更 ${e.chg} 不存在`); continue }
+        if (ch.closed) { bad(`变更 ${e.chg} 已经完结，不能再改`); continue }
+        if (e.type === 'change_affect') { for (const key of e.affects) if (!ch.targets.some((t) => t.key === key)) ch.targets.push({ key, done: null }) }
+        else if (e.type === 'change_handle') {
+          const miss = e.targets.filter((key) => !ch.targets.some((t) => t.key === key))
+          if (miss.length) { bad(`变更 ${e.chg} 的影响范围里没有 ${miss.join('、')}`); continue }
+          for (const t of ch.targets) if (e.targets.includes(t.key)) t.done = { at: e.at, by: e.by, note: e.note ?? null }
+        } else {
+          const left = ch.targets.filter((t) => !t.done)
+          if (left.length) { bad(`变更 ${e.chg} 还有没处理的：${left.map((t) => CHANGE_TARGETS[t.key] ?? t.key).join('、')}`); continue }
+          ch.closed = { at: e.at, by: e.by, quote: e.quote }
+        }
         break
       }
       case 'defect_waive': {
@@ -226,6 +258,7 @@ export function derive(events, defs = [], { now = new Date().toISOString() } = {
       rollbacks: v.rollbacks.map((r) => ({ at: r.at, from: r.from, to: r.to, reason: r.reason, ref: r.ref ?? null })),
       downstream: v.downstream.map((d) => ({ target: d.target, result: d.result, evidence: d.evidence, by: d.confirmed?.by ?? null })),
       items: [...v.items.values()],
+      decisions: [...v.decisions.values()], changes: [...v.changes.values()],
       defects: [...v.defects.values()].map((d) => ({ ...d, days: dayDiff(d.at, d.closedAt ?? now), hours: Math.round(hours(d.at, d.closedAt ?? now)) })),
       createId: v.create.id, deployedToProduction: project.deploys.some((d) => d.env === 'production' && !['rollback', 'verify'].includes(d.action) && d.versions.includes(v.id)),
       conflicts: v.conflicts.map((c) => ({ id: c.e.id, type: c.e.type, at: c.e.at, by: c.e.by, why: c.why, branch: c.e.src?.branch ?? null, here: !!c.e.src?.here })),

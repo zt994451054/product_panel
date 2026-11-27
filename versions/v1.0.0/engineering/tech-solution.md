@@ -202,6 +202,6 @@
 - **前端开发前**须阅读统一原型工程 [foundation/design/prototype/README.md](../../../foundation/design/prototype/README.md)，确认终端路径并 `npm run dev` 启动；前端按 design-spec.md 固定的原型基准与还原优先级**还原**
 - 新增依赖和配置变更须同步更新至 engineering/docs/ 对应文档
 - 非功能需求技术实现须覆盖「非功能需求技术实现」节中所有条目
-- 方案有变更时先在 CHANGES.md 记录，再修改本文档
+- 方案有变更时先用 `change open` 登记（SOP-04），再修改本文档
 - 若本版本调整技术架构基线，须同步更新 foundation/tech-arch/
 → 变更记录见 [CHANGES.md](../CHANGES.md)
