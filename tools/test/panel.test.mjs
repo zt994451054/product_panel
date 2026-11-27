@@ -541,6 +541,8 @@ test('familiar fields are recorded per member and only produce a hint, never a r
   assert.match(r.ok('status'), /当前操作者：小林（xiaolin）· 熟悉的领域：没记/)
   r.no(/熟悉的领域「design」不合法/, 'member', 'update', '--id', 'xiaolin', '--familiar', 'design', '--by', 'xiaolin')
   r.ok('member', 'update', '--id', 'xiaolin', '--familiar', 'product,owner', '--quote', '我做产品，也是这个产品的总负责人', '--by', 'xiaolin', '--at', '2026-08-20T11:00')
+  r.ok('render')
+  assert.deepEqual(JSON.parse(readFileSync(join(r.root, 'cockpit.html'), 'utf8').match(/const DATA = (\{.*\});\n/)[1]).members.find((m) => m.id === 'xiaolin').familiar, ['product', 'owner'])
   assert.match(r.ok('status'), /熟悉的领域：产品、总负责人\n(?!  提示)/)
   newVersion(r, 'v1.0.0', '2026-10-01T09:00')
   // Signing inside a familiar field stays quiet; signing outside it is allowed and surfaces a hint.

@@ -497,7 +497,10 @@ function renderConf() {
   const gates = s.gates.map((g) => `<tr><td>「${g.name}」的签收</td><td><b>${MODE[g.mode]}</b>${g.fixed ? ' <span class="pill">固定由人签，不可改</span>' : ''}</td></tr>`).join('')
   const hist = s.history.map((h) => `<div class="rec"><span class="pill blue">${md(h.at)}</span><div><b>${nm(h.by)}</b> 把「${SN[h.key.slice(5)] ?? h.key}」的签收从「${MODE[h.from] ?? h.from}」改为「${MODE[h.value] ?? h.value}」</div><div class="q">「${esc(h.quote)}」</div></div>`).join('')
   const DOM = { product: '产品', engineering: '研发', testing: '测试', ops: '运维' }
-  const members = DATA.members.map((m) => `<tr><td><b>${esc(m.name)}</b></td><td>${esc(m.role)}</td><td>${m.domains.map((d) => DOM[d]).join('、')}</td><td>${m.active ? '在项目中' : '已离开'}</td></tr>`).join('')
+  // Familiar fields only shape how the AI explains things; "未记录" means treated as familiar with all.
+  const FAM = { product: '产品', frontend: '前端', backend: '后端', testing: '测试', ops: '运维', owner: '总负责人' }
+  const fam = (m) => m.familiar?.length ? m.familiar.map((d) => FAM[d] ?? esc(d)).join('、') : '<span class="sub">未记录</span>'
+  const members = DATA.members.map((m) => `<tr><td><b>${esc(m.name)}</b></td><td>${esc(m.role)}</td><td>${m.domains.map((d) => DOM[d]).join('、')}</td><td>${fam(m)}</td><td>${m.active ? '在项目中' : '已离开'}</td></tr>`).join('')
   const CS = { todo: '未填', skipped: '暂不填', draft: '草稿待审', confirmed: '已确认', na: '不适用' }
   const cfg = DATA.config.map((c) => `<tr><td class="num">${c.no}</td><td>${esc(c.name)}</td><td>${c.level === 'na' ? '—' : c.level}${SN[c.before] ? ' · ' + SN[c.before] + '前' : c.before === 'first_upload' ? ' · 首次上传文件前' : ''}</td><td><span class="pill ${{ confirmed: 'green', draft: 'amber' }[c.status] ?? 'gray'}">${CS[c.status]}</span></td><td>${c.status === 'confirmed' ? nm(c.by) + ' ' + md(c.at) + '「' + esc(c.quote) + '」' : esc(c.note ?? '')}</td></tr>`).join('')
   const MN = { i18n: '多语言', planning: '产品规划', smoke: '冒烟测试' }, MS = { on: '已启用', off: '未启用', declined: '明确不启用' }
@@ -508,7 +511,7 @@ function renderConf() {
         <h3 style="margin-top:18px">修改记录</h3>${hist || '<div class="empty">没有改过。</div>'}
         <p class="sub" style="margin:14px 0 6px">这个页面只读。要改设置，对 AI 说：</p>
         <div style="display:grid;grid-template-columns:1fr auto;gap:8px"><div class="say">${esc(setPrompt)}</div>${copyBtn(setPrompt)}</div></div>
-      <div><div class="card"><h2>成员</h2><p class="sub">项目级，入库，签收时用来判断谁有资格确认</p><table><thead><tr><th>姓名</th><th>角色</th><th>负责</th><th>状态</th></tr></thead><tbody>${members}</tbody></table></div>
+      <div><div class="card"><h2>成员</h2><p class="sub">项目级，入库，「负责」决定谁有资格签收；「熟悉的领域」只影响 AI 怎么说明，没记的按都熟悉对待</p><table><thead><tr><th>姓名</th><th>角色</th><th>负责</th><th>熟悉的领域</th><th>状态</th></tr></thead><tbody>${members}</tbody></table></div>
         <div class="card"><h2>我的档案</h2><p class="sub">只在这台电脑上、不入库的个人档案还没有启用。右上角选的身份只保存在这个浏览器里，用来过滤「只看我的」。</p></div></div></div>
     <div class="card"><h2>配置清单</h2><p class="sub">可选模块：${DATA.modules.map((m) => MN[m.id] + ' ' + MS[m.status]).join('　')}</p>
       <table><thead><tr><th>#</th><th>配置项</th><th>等级</th><th>状态</th><th>记录</th></tr></thead><tbody>${cfg}</tbody></table></div>`
